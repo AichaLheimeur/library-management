@@ -55,3 +55,18 @@ CREATE TABLE IF NOT EXISTS reservations (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
 );
+
+-- =========================
+-- TABLE PENALTIES
+-- =========================
+CREATE TABLE IF NOT EXISTS penalties (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    loan_id INT NOT NULL,
+    amount DECIMAL(6,2) DEFAULT 0.00,
+    reason VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE
+);
