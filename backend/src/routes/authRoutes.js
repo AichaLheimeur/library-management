@@ -4,13 +4,16 @@ const router = express.Router();
 const pool = require("../config/db");
 const bcrypt = require("bcryptjs");
 const { signToken } = require("../utils/jwt");
+const { protect } = require("../middlewares/authMiddleware");
+const { isAdmin } = require("../middlewares/adminMiddleware");
 
+// =======================
 // ✅ REGISTER
+// =======================
 router.post("/register", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 1️⃣ Vérification des champs
     if (!email || !password) {
       return res.status(400).json({
         ok: false,
@@ -18,7 +21,6 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    // 2️⃣ Vérifier si utilisateur existe déjà
     const [existingUser] = await pool.query(
       "SELECT id FROM users WHERE email = ?",
       [email]
@@ -31,16 +33,13 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    // 3️⃣ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 4️⃣ Insert user
     const [result] = await pool.query(
       "INSERT INTO users (email, password) VALUES (?, ?)",
       [email, hashedPassword]
     );
 
-    // 5️⃣ Generate JWT
     const token = signToken({
       id: result.insertId,
       email,
@@ -51,6 +50,7 @@ router.post("/register", async (req, res) => {
       ok: true,
       token,
     });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -60,12 +60,14 @@ router.post("/register", async (req, res) => {
   }
 });
 
+
+// =======================
 // ✅ LOGIN
+// =======================
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 1️⃣ Vérification des champs
     if (!email || !password) {
       return res.status(400).json({
         ok: false,
@@ -73,7 +75,6 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // 2️⃣ Chercher l'utilisateur
     const [rows] = await pool.query(
       "SELECT id, email, password, role FROM users WHERE email = ?",
       [email]
@@ -88,7 +89,6 @@ router.post("/login", async (req, res) => {
 
     const user = rows[0];
 
-    // 3️⃣ Comparer password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
@@ -98,7 +98,6 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // 4️⃣ Generate JWT
     const token = signToken({
       id: user.id,
       email: user.email,
@@ -109,6 +108,7 @@ router.post("/login", async (req, res) => {
       ok: true,
       token,
     });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -118,4 +118,24 @@ router.post("/login", async (req, res) => {
   }
 });
 
+
+// =======================
+// ✅ PROTECTED ROUTE
+// =======================
+router.get("/me", protect, (req, res) => {
+  return res.json({
+    ok: true,
+    user: req.user,
+  });
+});
+
 module.exports = router;
+
+
+router.get("/admin-test", protect, isAdmin, (req, res) => {
+  res.json({
+    ok: true,
+    message: "Welcome ADMIN",
+  });
+});
+
