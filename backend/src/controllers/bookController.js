@@ -151,3 +151,25 @@ exports.updateBook = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// DELETE /api/books/:id
+exports.deleteBook = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [result] = await pool.query(
+      "DELETE FROM books WHERE id = ?",
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Book not found" });
+    }
+
+    res.json({ message: "Book deleted successfully" });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
