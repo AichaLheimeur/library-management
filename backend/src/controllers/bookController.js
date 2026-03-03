@@ -76,3 +76,78 @@ exports.createBook = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+/**
+ * PUT /api/books/:id
+ * Admin: update a book
+ */
+exports.updateBook = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      author,
+      category,
+      description,
+      total_quantity,
+      available_quantity
+    } = req.body;
+
+    const [existing] = await pool.query(
+      "SELECT * FROM books WHERE id = ?",
+      [id]
+    );
+
+    if (existing.length === 0) {
+      return res.status(404).json({ message: "Book not found" });
+    }
+
+    const book = existing[0];
+
+    const newTotal =
+      total_quantity !== undefined
+        ? Number(total_quantity)
+        : book.total_quantity;
+
+    const newAvailable =
+      available_quantity !== undefined
+        ? Number(available_quantity)
+        : book.available_quantity;
+
+    if (newTotal < 0 || newAvailable < 0) {
+      return res
+        .status(400)
+        .json({ message: "Quantities must be >= 0" });
+    }
+
+    if (newAvailable > newTotal) {
+      return res.status(400).json({
+        message: "available_quantity cannot exceed total_quantity",
+      });
+    }
+
+    await pool.query(
+      `UPDATE books
+       SET title=?, author=?, category=?, description=?, total_quantity=?, available_quantity=?
+       WHERE id=?`,
+      [
+        title ?? book.title,
+        author ?? book.author,
+        category ?? book.category,
+        description ?? book.description,
+        newTotal,
+        newAvailable,
+        id,
+      ]
+    );
+
+    const [updated] = await pool.query(
+      "SELECT * FROM books WHERE id = ?",
+      [id]
+    );
+
+    res.json(updated[0]);
+  } catch (error) {
+    console.error("updateBook error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

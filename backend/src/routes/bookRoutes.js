@@ -1,8 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { getAllBooks, getBookById, createBook } = require("../controllers/bookController");
-
+const { getAllBooks, getBookById, createBook, updateBook } = require("../controllers/bookController");
 
 const { protect } = require("../middlewares/authMiddleware");
 const { isAdmin } = require("../middlewares/adminMiddleware");
@@ -13,5 +12,6 @@ router.get("/:id", getBookById);
 
 // Admin
 router.post("/", protect, isAdmin, createBook);
+router.put("/:id", protect, isAdmin, updateBook);
 
 module.exports = router;
