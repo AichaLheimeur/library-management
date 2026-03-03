@@ -1,6 +1,6 @@
 require("dotenv").config();
 const express = require("express");
-
+const bookRoutes = require("./src/routes/bookRoutes");
 const healthRoutes = require("./src/routes/health");
 const authRoutes = require("./src/routes/authRoutes");
 
@@ -22,3 +22,6 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+app.use("/api/books", bookRoutes);
+
