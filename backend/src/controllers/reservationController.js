@@ -1,0 +1,140 @@
+const pool = require("../config/db");
+
+// POST /api/reservations
+// User: reserve a book (only if available_quantity = 0)
+exports.createReservation = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { book_id } = req.body;
+
+    if (!book_id) {
+      return res.status(400).json({ message: "book_id is required" });
+    }
+
+    // 1. Check book exists
+    const [books] = await pool.query("SELECT * FROM books WHERE id = ?", [book_id]);
+
+    if (books.length === 0) {
+      return res.status(404).json({ message: "Book not found" });
+    }
+
+    const book = books[0];
+
+    // 2. Only reserve if unavailable
+    if (book.available_quantity > 0) {
+      return res.status(400).json({
+        message: "Book is available, you can borrow it directly",
+      });
+    }
+
+    // 3. Prevent duplicate active reservation
+    const [existing] = await pool.query(
+      "SELECT id FROM reservations WHERE user_id = ? AND book_id = ? AND status = 'ACTIVE'",
+      [userId, book_id]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({
+        message: "You already have an active reservation for this book",
+      });
+    }
+
+    // 4. Create reservation
+    const reservationDate = new Date();
+
+    const [result] = await pool.query(
+      `INSERT INTO reservations (user_id, book_id, reservation_date, status)
+       VALUES (?, ?, ?, 'ACTIVE')`,
+      [userId, book_id, reservationDate]
+    );
+
+    return res.status(201).json({
+      message: "Reservation created successfully",
+      reservation_id: result.insertId,
+    });
+  } catch (error) {
+    console.error("createReservation error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// GET /api/reservations/me
+// User: get own reservations
+exports.getMyReservations = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [reservations] = await pool.query(
+      `SELECT r.id, r.book_id, b.title, b.author, r.reservation_date, r.status
+       FROM reservations r
+       JOIN books b ON r.book_id = b.id
+       WHERE r.user_id = ?
+       ORDER BY r.reservation_date DESC`,
+      [userId]
+    );
+
+    return res.json(reservations);
+  } catch (error) {
+    console.error("getMyReservations error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// DELETE /api/reservations/:id
+// User: cancel own reservation
+exports.cancelReservation = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    // 1. Check reservation exists and belongs to user
+    const [rows] = await pool.query(
+      "SELECT * FROM reservations WHERE id = ? AND user_id = ?",
+      [id, userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Reservation not found" });
+    }
+
+    const reservation = rows[0];
+
+    // 2. Only cancel ACTIVE reservations
+    if (reservation.status !== "ACTIVE") {
+      return res.status(400).json({
+        message: "Only active reservations can be cancelled",
+      });
+    }
+
+    // 3. Update status to CANCELLED
+    await pool.query(
+      "UPDATE reservations SET status = 'CANCELLED' WHERE id = ?",
+      [id]
+    );
+
+    return res.json({ message: "Reservation cancelled successfully" });
+  } catch (error) {
+    console.error("cancelReservation error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// GET /api/reservations
+// Admin: get all reservations
+exports.getAllReservations = async (req, res) => {
+  try {
+    const [reservations] = await pool.query(
+      `SELECT r.id, r.user_id, u.email, r.book_id, b.title, b.author,
+              r.reservation_date, r.status
+       FROM reservations r
+       JOIN users u ON r.user_id = u.id
+       JOIN books b ON r.book_id = b.id
+       ORDER BY r.reservation_date DESC`
+    );
+
+    return res.json(reservations);
+  } catch (error) {
+    console.error("getAllReservations error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
