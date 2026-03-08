@@ -8,11 +8,17 @@ const loanRoutes = require("./src/routes/loanRoutes");
 const reservationRoutes = require("./src/routes/reservationRoutes");
 const penaltyRoutes = require("./src/routes/penaltyRoutes");
 
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./src/docs/swagger");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware global
 app.use(express.json());
+
+// Swagger
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use("/health", healthRoutes);
