@@ -94,24 +94,46 @@ exports.returnBook = async (req, res) => {
 
     const loan = rows[0];
 
-    // 2️⃣ Déjà retourné ?
-    if (loan.status === "RETURNED") {
+    // 2️⃣ Autoriser uniquement si le statut est BORROWED
+    if (loan.status !== "BORROWED") {
       return res.status(400).json({ message: "Book already returned" });
     }
 
-    // 3️⃣ Mettre à jour le loan
+    // 3️⃣ Calculer si retard
+    const returnDate = new Date();
+    const dueDate = new Date(loan.due_date);
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const lateDays = Math.floor((returnDate - dueDate) / msPerDay);
+    const isLate = lateDays > 0;
+
+    // 4️⃣ Mettre à jour le loan
+    const newStatus = isLate ? "LATE" : "RETURNED";
     await pool.query(
-      "UPDATE loans SET status='RETURNED', return_date=NOW() WHERE id=?",
-      [loanId]
+      "UPDATE loans SET status=?, return_date=NOW() WHERE id=?",
+      [newStatus, loanId]
     );
 
-    // 4️⃣ Remettre stock +1
+    // 5️⃣ Remettre stock +1
     await pool.query(
       "UPDATE books SET available_quantity = available_quantity + 1 WHERE id=?",
       [loan.book_id]
     );
 
-    return res.json({ message: "Book returned successfully" });
+    // 6️⃣ Créer une pénalité si retard
+    if (isLate) {
+      const amount = lateDays * 10.0;
+      const reason = `Late return: ${lateDays} day${lateDays > 1 ? "s" : ""} overdue`;
+      await pool.query(
+        "INSERT INTO penalties (user_id, loan_id, amount, reason) VALUES (?, ?, ?, ?)",
+        [loan.user_id, loanId, amount, reason]
+      );
+    }
+
+    return res.json({
+      message: isLate
+        ? `Book returned late. Penalty applied: ${lateDays} day(s) × 10.00 = ${(lateDays * 10).toFixed(2)} €`
+        : "Book returned successfully",
+    });
   } catch (error) {
     console.error("returnBook error:", error);
     return res.status(500).json({ message: "Server error" });

@@ -6,6 +6,7 @@ const authRoutes = require("./src/routes/authRoutes");
 const bookRoutes = require("./src/routes/bookRoutes");
 const loanRoutes = require("./src/routes/loanRoutes");
 const reservationRoutes = require("./src/routes/reservationRoutes");
+const penaltyRoutes = require("./src/routes/penaltyRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +20,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/books", bookRoutes);
 app.use("/api/loans", loanRoutes);
 app.use("/api/reservations", reservationRoutes);
+app.use("/api/penalties", penaltyRoutes);
 
 // Route racine
 app.get("/", (req, res) => {
