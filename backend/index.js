@@ -33,7 +33,11 @@ app.get("/", (req, res) => {
   res.json({ message: "Backend is running 🚀" });
 });
 
-// Toujours en dernier
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Démarrage du serveur seulement si lancé directement (pas lors des tests)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
