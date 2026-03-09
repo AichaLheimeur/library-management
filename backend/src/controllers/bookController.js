@@ -6,7 +6,27 @@ const pool = require("../config/db");
  */
 exports.getAllBooks = async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM books");
+    const { title, author, category } = req.query;
+
+    const conditions = [];
+    const values = [];
+
+    if (title) {
+      conditions.push("title LIKE ?");
+      values.push(`%${title}%`);
+    }
+    if (author) {
+      conditions.push("author LIKE ?");
+      values.push(`%${author}%`);
+    }
+    if (category) {
+      conditions.push("category LIKE ?");
+      values.push(`%${category}%`);
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const [rows] = await pool.query(`SELECT * FROM books ${where}`, values);
+
     return res.json(rows);
   } catch (error) {
     console.error("getAllBooks error:", error);
