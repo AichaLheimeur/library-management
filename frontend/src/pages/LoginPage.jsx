@@ -105,7 +105,7 @@ export default function LoginPage() {
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">mail</span>
                 <input
-                  className="form-input flex w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary h-14 pl-12 pr-4 text-base transition-all"
+                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none h-14 pl-12 pr-4 text-base transition-all"
                   type="email"
                   placeholder="name@library.com"
                   required
@@ -125,7 +125,7 @@ export default function LoginPage() {
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">lock</span>
                 <input
-                  className="form-input flex w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary h-14 pl-12 pr-12 text-base transition-all"
+                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none h-14 pl-12 pr-12 text-base transition-all"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   required

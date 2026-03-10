@@ -15,7 +15,7 @@ export default function Navbar() {
         <span className="text-xl font-bold tracking-tight text-primary">LibraryConnect</span>
       </Link>
       <div className="flex items-center gap-6 text-sm font-medium">
-        <Link to="/catalog" className="hover:text-primary/70 transition-colors">Catalog</Link>
+        <Link to="/catalog" className="text-white bg-primary hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors">Catalog</Link>
         {isLoggedIn() && <Link to="/dashboard" className="hover:text-primary/70 transition-colors">Dashboard</Link>}
         {isAdmin() && <Link to="/admin" className="hover:text-primary/70 transition-colors">Admin</Link>}
         {!isLoggedIn() && pathname !== "/login" && <Link to="/login" className="text-white bg-primary hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors">Sign In</Link>}
