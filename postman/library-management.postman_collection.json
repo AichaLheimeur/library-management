@@ -2,11 +2,18 @@
   "info": {
     "_postman_id": "490fa365-d9ad-4eaa-9c2a-6472ab2b9653",
     "name": "Library Management API",
-    "description": "Collection complète pour tester l'API de gestion de bibliothèque. Couvre l'authentification, les livres, les emprunts, les réservations et les pénalités.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "50353005",
-    "_collection_link": "https://go.postman.co/collection/50353005-490fa365-d9ad-4eaa-9c2a-6472ab2b9653?source=collection_link"
+    "description": "Collection complète pour tester l'API de gestion de bibliothèque. Couvre l'authentification, les livres, les emprunts, les réservations, les pénalités, les utilisateurs et les rappels.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000", "type": "string" },
+    { "key": "token_user", "value": "", "type": "string" },
+    { "key": "token_admin", "value": "", "type": "string" },
+    { "key": "book_id", "value": "", "type": "string" },
+    { "key": "loan_id", "value": "", "type": "string" },
+    { "key": "reservation_id", "value": "", "type": "string" },
+    { "key": "user_id", "value": "", "type": "string" }
+  ],
   "item": [
     {
       "name": "Auth",
@@ -15,21 +22,17 @@
           "name": "Register",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\"\n}"
-            },
-            "url": {
-              "raw": ""
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Login - User",
@@ -44,39 +47,23 @@
                   "  console.log('token_user saved');",
                   "}"
                 ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
+                "type": "text/javascript"
               }
             }
           ],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"test@test.com\",\n  \"password\": \"123456\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:3000/api/auth/login",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "3000",
-              "path": [
-                "api",
-                "auth",
-                "login"
-              ]
+              "raw": "{\n  \"email\": \"user1@example.com\",\n  \"password\": \"password123\"\n}"
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Login - Admin",
@@ -91,55 +78,35 @@
                   "  console.log('token_admin saved');",
                   "}"
                 ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
+                "type": "text/javascript"
               }
             }
           ],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@library.com\",\n  \"password\": \"admin123\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:3000/api/auth/login",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "3000",
-              "path": [
-                "api",
-                "auth",
-                "login"
-              ]
+              "raw": "{\n  \"email\": \"test@test.com\",\n  \"password\": \"123456\"\n}"
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Me (profil)",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_user}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_user}}" }],
             "url": {
-              "raw": ""
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
             }
-          },
-          "response": []
+          }
         }
       ]
     },
@@ -152,10 +119,28 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": ""
+              "raw": "{{base_url}}/api/books",
+              "host": ["{{base_url}}"],
+              "path": ["api", "books"]
             }
-          },
-          "response": []
+          }
+        },
+        {
+          "name": "Search Books (title / author / category)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/books?title=clean&author=martin&category=informatique",
+              "host": ["{{base_url}}"],
+              "path": ["api", "books"],
+              "query": [
+                { "key": "title", "value": "clean", "disabled": false },
+                { "key": "author", "value": "martin", "disabled": true },
+                { "key": "category", "value": "informatique", "disabled": true }
+              ]
+            }
+          }
         },
         {
           "name": "Get Book by ID",
@@ -163,10 +148,11 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": ""
+              "raw": "{{base_url}}/api/books/{{book_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "books", "{{book_id}}"]
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Create Book (admin)",
@@ -188,64 +174,50 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_admin}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token_admin}}" }
             ],
+            "url": {
+              "raw": "{{base_url}}/api/books",
+              "host": ["{{base_url}}"],
+              "path": ["api", "books"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Clean Code\",\n  \"author\": \"Robert C. Martin\",\n  \"category\": \"Informatique\",\n  \"description\": \"Un livre sur les bonnes pratiques de programmation.\",\n  \"total_quantity\": 3\n}"
-            },
-            "url": {
-              "raw": ""
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Update Book (admin)",
           "request": {
             "method": "PUT",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_admin}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token_admin}}" }
             ],
+            "url": {
+              "raw": "{{base_url}}/api/books/{{book_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "books", "{{book_id}}"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Clean Code (Updated)\",\n  \"total_quantity\": 5\n}"
-            },
-            "url": {
-              "raw": ""
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Delete Book (admin)",
           "request": {
             "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_admin}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
             "url": {
-              "raw": ""
+              "raw": "{{base_url}}/api/books/{{book_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "books", "{{book_id}}"]
             }
-          },
-          "response": []
+          }
         }
       ]
     },
@@ -254,42 +226,22 @@
       "item": [
         {
           "name": "Borrow Book",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "const json = pm.response.json();",
-                  "if (pm.response.code === 201) {",
-                  "  console.log('Book borrowed successfully');",
-                  "  // Récupère le loan_id via GET /api/loans/me après cet appel",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_user}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token_user}}" }
             ],
+            "url": {
+              "raw": "{{base_url}}/api/loans",
+              "host": ["{{base_url}}"],
+              "path": ["api", "loans"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"book_id\": {{book_id}}\n}"
-            },
-            "url": {
-              "raw": ""
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Get My Loans",
@@ -313,49 +265,37 @@
           ],
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_user}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_user}}" }],
             "url": {
-              "raw": ""
+              "raw": "{{base_url}}/api/loans/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "loans", "me"]
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Get All Loans (admin)",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_admin}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
             "url": {
-              "raw": ""
+              "raw": "{{base_url}}/api/loans",
+              "host": ["{{base_url}}"],
+              "path": ["api", "loans"]
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Return Book",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_user}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_user}}" }],
             "url": {
-              "raw": ""
+              "raw": "{{base_url}}/api/loans/{{loan_id}}/return",
+              "host": ["{{base_url}}"],
+              "path": ["api", "loans", "{{loan_id}}", "return"]
             }
-          },
-          "response": []
+          }
         }
       ]
     },
@@ -382,72 +322,55 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_user}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token_user}}" }
             ],
+            "url": {
+              "raw": "{{base_url}}/api/reservations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reservations"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"book_id\": {{book_id}}\n}"
-            },
-            "url": {
-              "raw": ""
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Get My Reservations",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_user}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_user}}" }],
             "url": {
-              "raw": ""
+              "raw": "{{base_url}}/api/reservations/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reservations", "me"]
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Get All Reservations (admin)",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_admin}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
             "url": {
-              "raw": ""
+              "raw": "{{base_url}}/api/reservations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reservations"]
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Cancel Reservation",
           "request": {
             "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_user}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_user}}" }],
             "url": {
-              "raw": ""
+              "raw": "{{base_url}}/api/reservations/{{reservation_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reservations", "{{reservation_id}}"]
             }
-          },
-          "response": []
+          }
         }
       ]
     },
@@ -458,67 +381,140 @@
           "name": "Get My Penalties",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_user}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_user}}" }],
             "url": {
-              "raw": ""
+              "raw": "{{base_url}}/api/penalties/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "penalties", "me"]
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Get All Penalties (admin)",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_admin}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
             "url": {
-              "raw": ""
+              "raw": "{{base_url}}/api/penalties",
+              "host": ["{{base_url}}"],
+              "path": ["api", "penalties"]
             }
-          },
-          "response": []
+          }
         }
       ]
-    }
-  ],
-  "variable": [
-    {
-      "key": "base_url",
-      "value": "http://localhost:3000",
-      "type": "string"
     },
     {
-      "key": "token_user",
-      "value": "",
-      "type": "string"
+      "name": "Users (admin)",
+      "item": [
+        {
+          "name": "Get All Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (Array.isArray(json) && json.length > 0) {",
+                  "  const user = json.find(u => u.role === 'USER');",
+                  "  if (user) {",
+                  "    pm.collectionVariables.set('user_id', user.id);",
+                  "    console.log('user_id saved:', user.id);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users"]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Validate User",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/validate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", "validate"]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}"]
+            }
+          }
+        }
+      ]
     },
     {
-      "key": "token_admin",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "book_id",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "loan_id",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "reservation_id",
-      "value": "",
-      "type": "string"
+      "name": "Reminders (admin)",
+      "item": [
+        {
+          "name": "Get Loans Due Soon (3 days)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/reminders/due-soon",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reminders", "due-soon"]
+            }
+          }
+        },
+        {
+          "name": "Get Loans Due Soon (custom days)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/reminders/due-soon?days=7",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reminders", "due-soon"],
+              "query": [{ "key": "days", "value": "7" }]
+            }
+          }
+        },
+        {
+          "name": "Send Reminders",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/reminders/send",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reminders", "send"]
+            }
+          }
+        }
+      ]
     }
   ]
 }
