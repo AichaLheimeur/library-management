@@ -16,11 +16,11 @@ export default function Navbar() {
       </Link>
       <div className="flex items-center gap-6 text-sm font-medium">
         <Link to="/catalog" className="text-white bg-primary hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors">Catalog</Link>
-        {isLoggedIn() && <Link to="/dashboard" className="hover:text-primary/70 transition-colors">Dashboard</Link>}
+        {isLoggedIn() && <Link to="/dashboard" className="text-white bg-primary hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors">Dashboard</Link>}
         {isAdmin() && <Link to="/admin" className="hover:text-primary/70 transition-colors">Admin</Link>}
         {!isLoggedIn() && pathname !== "/login" && <Link to="/login" className="text-white bg-primary hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors">Sign In</Link>}
         {!isLoggedIn() && pathname !== "/register" && <Link to="/register" className="text-white bg-primary hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors">Sign Up</Link>}
-        {isLoggedIn() && <button onClick={() => { logout(); navigate("/login"); }} className="hover:text-primary/70 transition-colors">Logout</button>}
+        {isLoggedIn() && <button onClick={() => { logout(); navigate("/login"); }} className="text-white bg-primary hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors">Logout</button>}
       </div>
     </nav>
   );

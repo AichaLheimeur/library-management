@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "../context/AuthContext";
 
 import PrivateRoute from "./PrivateRoute";
@@ -13,9 +13,10 @@ import AdminPage from "../pages/AdminPage";
 import NotFoundPage from "../pages/NotFoundPage";
 
 function Layout() {
+  const { pathname } = useLocation();
   return (
     <>
-      <Navbar />
+      {pathname !== "/dashboard" && <Navbar />}
       <Routes>
         <Route path="/" element={<Navigate to="/catalog" replace />} />
         <Route path="/login" element={<LoginPage />} />
