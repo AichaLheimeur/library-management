@@ -10,6 +10,7 @@ import RegisterPage from "../pages/RegisterPage";
 import CatalogPage from "../pages/CatalogPage";
 import DashboardPage from "../pages/DashboardPage";
 import AdminPage from "../pages/AdminPage";
+import BookDetailPage from "../pages/BookDetailPage";
 import NotFoundPage from "../pages/NotFoundPage";
 
 function Layout() {
@@ -22,6 +23,7 @@ function Layout() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/catalog" element={<CatalogPage />} />
+        <Route path="/books/:id" element={<BookDetailPage />} />
         <Route
           path="/dashboard"
           element={

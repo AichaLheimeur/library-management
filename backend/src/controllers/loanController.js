@@ -26,6 +26,16 @@ exports.borrowBook = async (req, res) => {
       return res.status(400).json({ message: "Book not available" });
     }
 
+    // 2️⃣bis Vérifier qu'il n'y a pas déjà un emprunt actif pour ce user + ce book
+    const [activeLoans] = await pool.query(
+      "SELECT id FROM loans WHERE user_id = ? AND book_id = ? AND status IN ('BORROWED', 'LATE')",
+      [userId, book_id]
+    );
+
+    if (activeLoans.length > 0) {
+      return res.status(400).json({ message: "You already have an active loan for this book" });
+    }
+
     // 3️⃣ Calculer dates (14 jours)
     const borrowDate = new Date();
     const dueDate = new Date();
