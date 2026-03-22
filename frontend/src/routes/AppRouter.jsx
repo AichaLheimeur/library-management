@@ -11,6 +11,7 @@ import CatalogPage from "../pages/CatalogPage";
 import DashboardPage from "../pages/DashboardPage";
 import AdminPage from "../pages/AdminPage";
 import BookDetailPage from "../pages/BookDetailPage";
+import WishlistPage from "../pages/WishlistPage";
 import NotFoundPage from "../pages/NotFoundPage";
 
 function Layout() {
@@ -24,6 +25,7 @@ function Layout() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/catalog" element={<CatalogPage />} />
         <Route path="/books/:id" element={<BookDetailPage />} />
+        <Route path="/wishlist" element={<PrivateRoute><WishlistPage /></PrivateRoute>} />
         <Route
           path="/dashboard"
           element={

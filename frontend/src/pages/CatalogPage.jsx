@@ -93,31 +93,6 @@ export default function CatalogPage() {
               </ul>
             </div>
 
-            {/* Filter by Status */}
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Filter By Status</h3>
-              <div className="space-y-3 px-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input className="rounded text-primary focus:ring-primary/20 border-slate-300" type="checkbox" />
-                  <span className="text-sm">Available Now</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input className="rounded text-primary focus:ring-primary/20 border-slate-300" type="checkbox" />
-                  <span className="text-sm">Recently Added</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Language */}
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Language</h3>
-              <select className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary/20">
-                <option>English</option>
-                <option>Spanish</option>
-                <option>French</option>
-                <option>German</option>
-              </select>
-            </div>
 
           </div>
         </aside>
@@ -128,7 +103,7 @@ export default function CatalogPage() {
           {/* Header + Search + Sort Bar */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div>
-              <h2 className="text-2xl font-bold">Explore Catalog</h2>
+              <h2 className="text-3xl font-black tracking-tight">Explore Catalog</h2>
               <p className="text-slate-500 text-sm">
                 {loading ? "Loading..." : `Showing ${books.length} result${books.length !== 1 ? "s" : ""}${activeCategory !== "All Books" ? ` in ${activeCategory}` : ""}`}
               </p>
@@ -215,20 +190,6 @@ export default function CatalogPage() {
             </div>
           )}
 
-          {/* Pagination */}
-          <div className="flex items-center justify-center gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">chevron_left</span>
-            </button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg bg-primary text-white font-bold text-sm">1</button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sm">2</button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sm">3</button>
-            <span className="px-2 text-slate-400">...</span>
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sm">12</button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">chevron_right</span>
-            </button>
-          </div>
 
         </main>
       </div>
