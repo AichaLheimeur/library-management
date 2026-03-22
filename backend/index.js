@@ -10,6 +10,7 @@ const reservationRoutes = require("./src/routes/reservationRoutes");
 const penaltyRoutes = require("./src/routes/penaltyRoutes");
 const userRoutes = require("./src/routes/userRoutes");
 const reminderRoutes = require("./src/routes/reminderRoutes");
+const wishlistRoutes = require("./src/routes/wishlistRoutes");
 
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./src/docs/swagger");
@@ -33,6 +34,7 @@ app.use("/api/reservations", reservationRoutes);
 app.use("/api/penalties", penaltyRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/reminders", reminderRoutes);
+app.use("/api/wishlist", wishlistRoutes);
 
 // Route racine
 app.get("/", (req, res) => {
