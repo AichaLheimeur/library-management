@@ -219,7 +219,7 @@ export default function BookDetailPage() {
             {/* CTA Buttons */}
             <div className="flex flex-col gap-3 py-2">
               <div className="flex flex-col sm:flex-row gap-4">
-                {isAvailable ? (
+                {!isAdmin() && (isAvailable ? (
                   <button
                     onClick={handleBorrow}
                     disabled={borrowing || borrowSuccess}
@@ -277,20 +277,27 @@ export default function BookDetailPage() {
                       </>
                     )}
                   </button>
+                ))}
+                {!isAdmin() && (
+                  <button
+                    onClick={handleWishlist}
+                    disabled={wishlistLoading}
+                    className={`flex items-center justify-center gap-2 px-8 py-5 rounded-xl font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                      isWishlisted
+                        ? "bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100"
+                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    {wishlistLoading ? (
+                      <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
+                    ) : (
+                      <span className="material-symbols-outlined" style={{ fontVariationSettings: isWishlisted ? "'FILL' 1" : "'FILL' 0" }}>
+                        favorite
+                      </span>
+                    )}
+                    {isWishlisted ? "Wishlisted" : "Wishlist"}
+                  </button>
                 )}
-                <button
-                  onClick={handleWishlist}
-                  className={`flex items-center justify-center gap-2 px-8 py-5 rounded-xl font-bold transition-colors ${
-                    isWishlisted
-                      ? "bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100"
-                      : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: isWishlisted ? "'FILL' 1" : "'FILL' 0" }}>
-                    favorite
-                  </span>
-                  {isWishlisted ? "Wishlisted" : "Wishlist"}
-                </button>
               </div>
 
               {/* Wishlist feedback */}
