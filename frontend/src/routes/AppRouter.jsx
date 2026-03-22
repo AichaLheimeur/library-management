@@ -17,7 +17,7 @@ function Layout() {
   const { pathname } = useLocation();
   return (
     <>
-      {pathname !== "/dashboard" && <Navbar />}
+      {pathname !== "/dashboard" && pathname !== "/admin" && <Navbar />}
       <Routes>
         <Route path="/" element={<Navigate to="/catalog" replace />} />
         <Route path="/login" element={<LoginPage />} />
