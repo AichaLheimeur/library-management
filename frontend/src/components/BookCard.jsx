@@ -1,4 +1,6 @@
-export default function BookCard({ title, author, genre, status, image }) {
+import { Link } from "react-router-dom";
+
+export default function BookCard({ id, title, author, genre, status, image }) {
   const statusStyle = {
     AVAILABLE: "bg-green-100 text-green-700",
     BORROWED: "bg-red-100 text-red-700",
@@ -8,7 +10,7 @@ export default function BookCard({ title, author, genre, status, image }) {
   const isAvailable = status === "AVAILABLE";
 
   return (
-    <div className={`group flex flex-col bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 hover:shadow-xl transition-all duration-300 ${!isAvailable ? "opacity-80" : ""}`}>
+    <Link to={`/books/${id}`} className={`group flex flex-col bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 hover:shadow-xl transition-all duration-300 ${!isAvailable ? "opacity-80" : ""}`}>
       <div className="aspect-[3/4] overflow-hidden relative">
         {isAvailable && (
           <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center justify-center gap-2">
@@ -46,6 +48,6 @@ export default function BookCard({ title, author, genre, status, image }) {
           <span className="material-symbols-outlined text-xs text-slate-400">more_horiz</span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
