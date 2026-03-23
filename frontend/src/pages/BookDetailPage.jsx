@@ -10,7 +10,7 @@ function getPlaceholder(title) {
 export default function BookDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isAdmin } = useAuth();
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,27 +20,38 @@ export default function BookDetailPage() {
   const [borrowing, setBorrowing] = useState(false);
   const [borrowSuccess, setBorrowSuccess] = useState(false);
   const [borrowError, setBorrowError] = useState(null);
-  const [isWishlisted, setIsWishlisted] = useState(() => {
-    const stored = JSON.parse(localStorage.getItem("wishlist") || "[]");
-    return stored.includes(Number(id));
-  });
+  const [isWishlisted, setIsWishlisted] = useState(false);
   const [wishlistMsg, setWishlistMsg] = useState(null);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
 
-  const handleWishlist = () => {
-    const stored = JSON.parse(localStorage.getItem("wishlist") || "[]");
-    const bookId = Number(id);
-    let updated;
-    if (stored.includes(bookId)) {
-      updated = stored.filter((x) => x !== bookId);
-      setIsWishlisted(false);
-      setWishlistMsg("Removed from wishlist");
-    } else {
-      updated = [...stored, bookId];
-      setIsWishlisted(true);
-      setWishlistMsg("Added to wishlist");
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+    api.get("/api/wishlist").then((res) => {
+      const ids = res.data.map((item) => item.book_id);
+      setIsWishlisted(ids.includes(Number(id)));
+    }).catch(() => {});
+  }, [id]);
+
+  const handleWishlist = async () => {
+    if (!isLoggedIn()) { navigate("/login"); return; }
+    setWishlistLoading(true);
+    try {
+      if (isWishlisted) {
+        await api.delete(`/api/wishlist/${id}`);
+        setIsWishlisted(false);
+        setWishlistMsg("Removed from wishlist");
+      } else {
+        await api.post("/api/wishlist", { book_id: Number(id) });
+        setIsWishlisted(true);
+        setWishlistMsg("Added to wishlist");
+      }
+      setTimeout(() => setWishlistMsg(null), 2000);
+    } catch (err) {
+      setWishlistMsg(err.response?.data?.message || "Wishlist error");
+      setTimeout(() => setWishlistMsg(null), 2000);
+    } finally {
+      setWishlistLoading(false);
     }
-    localStorage.setItem("wishlist", JSON.stringify(updated));
-    setTimeout(() => setWishlistMsg(null), 2000);
   };
 
   const handleBorrow = async () => {
@@ -140,7 +151,7 @@ export default function BookDetailPage() {
               {/* Cover card */}
               <div className="w-full rounded-2xl overflow-hidden shadow-[0_24px_64px_rgba(0,0,0,0.18)] bg-white">
                 <img
-                  src={getPlaceholder(book.title)}
+                  src={book.image_url ? `http://localhost:3000/images/${book.image_url}` : getPlaceholder(book.title)}
                   alt={`Cover of ${book.title}`}
                   className="w-full aspect-[3/4] object-cover"
                 />

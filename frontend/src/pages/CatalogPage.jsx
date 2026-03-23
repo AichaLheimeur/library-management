@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import BookCard from "../components/BookCard";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 function getStatus(book) {
   if (book.available_quantity > 0) return "AVAILABLE";
@@ -12,6 +13,7 @@ function getPlaceholder(title) {
 }
 
 export default function CatalogPage() {
+  const { isLoggedIn, user } = useAuth();
   const [books, setBooks] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +21,7 @@ export default function CatalogPage() {
   const [search, setSearch] = useState("");
   const [searchField, setSearchField] = useState("title");
   const [activeCategory, setActiveCategory] = useState("All Books");
+  const [borrowedIds, setBorrowedIds] = useState([]);
 
   // Fetch categories once on mount from real data
   useEffect(() => {
@@ -26,6 +29,14 @@ export default function CatalogPage() {
       const unique = [...new Set(res.data.map((b) => b.category).filter(Boolean))];
       setCategories(unique);
     });
+    if (isLoggedIn()) {
+      api.get("/api/loans/me").then((res) => {
+        const active = res.data
+          .filter((l) => ["BORROWED", "LATE"].includes(l.status))
+          .map((l) => l.book_id);
+        setBorrowedIds(active);
+      }).catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -55,8 +66,8 @@ export default function CatalogPage() {
       <div className="flex flex-1 w-full">
 
         {/* Sidebar Filters */}
-        <aside className="w-80 shrink-0 border-r border-slate-200 dark:border-slate-800 p-6 hidden lg:block min-h-[calc(100vh-65px)] sticky top-[65px] overflow-y-auto">
-          <div className="space-y-8">
+        <aside className="w-80 shrink-0 border-r border-slate-200 dark:border-slate-800 hidden lg:flex flex-col min-h-[calc(100vh-65px)] sticky top-[65px]">
+          <div className="flex-1 p-6 space-y-8 overflow-y-auto">
 
             {/* Categories */}
             <div>
@@ -93,7 +104,23 @@ export default function CatalogPage() {
               </ul>
             </div>
 
+          </div>
 
+          {/* User info block */}
+          <div className="p-4 border-t border-slate-200">
+            <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-slate-50">
+              <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm shrink-0">
+                {isLoggedIn() && user?.email ? user.email.charAt(0).toUpperCase() : "?"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-slate-800 truncate">
+                  {isLoggedIn() && user?.email ? user.email : "Not connected"}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {isLoggedIn() ? "Connected" : "Guest"}
+                </p>
+              </div>
+            </div>
           </div>
         </aside>
 
@@ -131,13 +158,6 @@ export default function CatalogPage() {
                   />
                 </div>
               </div>
-              <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-              <button className="p-2 bg-primary text-white rounded-lg">
-                <span className="material-symbols-outlined text-sm">grid_view</span>
-              </button>
-              <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
-                <span className="material-symbols-outlined text-sm">list</span>
-              </button>
             </div>
           </div>
 
@@ -184,7 +204,8 @@ export default function CatalogPage() {
                   author={book.author}
                   genre={book.category?.toUpperCase() || "BOOK"}
                   status={getStatus(book)}
-                  image={getPlaceholder(book.title)}
+                  image={book.image_url ? `http://localhost:3000/images/${book.image_url}` : getPlaceholder(book.title)}
+                  isBorrowed={borrowedIds.includes(book.id)}
                 />
               ))}
             </div>

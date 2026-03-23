@@ -6,7 +6,7 @@ exports.getMyWishlist = async (req, res) => {
     const userId = req.user.id;
 
     const [rows] = await pool.query(
-      `SELECT w.id, w.created_at, b.id AS book_id, b.title, b.author, b.category, b.available_quantity
+      `SELECT w.id, w.created_at, b.id AS book_id, b.title, b.author, b.category, b.available_quantity, b.image_url
        FROM wishlist w
        JOIN books b ON b.id = w.book_id
        WHERE w.user_id = ?

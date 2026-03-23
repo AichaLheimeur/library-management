@@ -37,6 +37,8 @@ export default function DashboardPage() {
   const [penalties, setPenalties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reservationToCancel, setReservationToCancel] = useState(null);
+  const [loanToReturn, setLoanToReturn] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -60,7 +62,22 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  const handleCancelReservation = async (id) => {
+  const handleReturnLoan = async () => {
+    if (!loanToReturn) return;
+    const id = loanToReturn.id;
+    setLoanToReturn(null);
+    try {
+      await api.put(`/api/loans/${id}/return`);
+      setLoans((prev) => prev.filter((l) => l.id !== id));
+    } catch {
+      alert("Could not return book.");
+    }
+  };
+
+  const handleCancelReservation = async () => {
+    if (!reservationToCancel) return;
+    const id = reservationToCancel.id;
+    setReservationToCancel(null);
     try {
       await api.delete(`/api/reservations/${id}`);
       setReservations((prev) => prev.filter((r) => r.id !== id));
@@ -92,36 +109,6 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-
-      {/* TopBar unique — full width */}
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm">
-          {/* Gauche : logo + titre */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-primary flex items-center justify-center rounded-lg">
-                <span className="material-symbols-outlined text-white text-lg">auto_stories</span>
-              </div>
-              <span className="font-bold text-primary text-lg tracking-tight hidden lg:block">LibraryConnect</span>
-            </div>
-            <div className="h-5 w-px bg-slate-200 mx-2"></div>
-            <div>
-              <h2 className="font-bold text-primary text-base">My Dashboard</h2>
-              <p className="text-slate-400 text-xs hidden lg:block">Welcome back, manage your books easily</p>
-            </div>
-          </div>
-
-          {/* Droite : nav links + search + icônes */}
-          <div className="flex items-center gap-4 text-sm font-medium">
-            <button onClick={() => navigate("/catalog")} className="text-white bg-primary hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors">Catalog</button>
-            <button onClick={() => navigate("/dashboard")} className="text-white bg-primary hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors">Dashboard</button>
-            <div className="h-5 w-px bg-slate-200"></div>
-            <div className="relative hidden sm:block">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
-              <input type="text" placeholder="Search loans..." className="bg-slate-100 rounded-full border-none pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 w-48 transition-all" />
-            </div>
-            <button onClick={() => { logout(); navigate("/login"); }} className="text-white bg-primary hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors">Logout</button>
-          </div>
-        </header>
 
       {/* Body: Sidebar + Content */}
       <div className="flex flex-1">
@@ -272,6 +259,17 @@ export default function DashboardPage() {
                           <td className="px-8 py-5">
                             <LoanStatusBadge loan={loan} />
                           </td>
+                          <td className="px-8 py-5">
+                            {(loan.status === "BORROWED" || loan.status === "LATE") && (
+                              <button
+                                onClick={() => setLoanToReturn(loan)}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-emerald-600 border border-emerald-100 hover:bg-emerald-50 transition-colors"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">undo</span>
+                                Return
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -307,11 +305,11 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <button
-                        onClick={() => handleCancelReservation(r.id)}
-                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
-                        title="Cancel reservation"
+                        onClick={() => setReservationToCancel(r)}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors"
                       >
-                        <span className="material-symbols-outlined">cancel</span>
+                        <span className="material-symbols-outlined text-[16px]">cancel</span>
+                        Cancel reservation
                       </button>
                     </div>
                   ))}
@@ -387,6 +385,72 @@ export default function DashboardPage() {
         </div>
         </main>
       </div>
+
+      {/* ── Return Book Modal ── */}
+      {loanToReturn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setLoanToReturn(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 flex flex-col gap-6">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-emerald-50 mx-auto">
+              <span className="material-symbols-outlined text-emerald-500 text-[32px]">undo</span>
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Return Book</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Are you sure you want to return{" "}
+                <span className="font-semibold text-slate-800">Book #{loanToReturn.book_id}</span>?
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setLoanToReturn(null)}
+                className="flex-1 px-5 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReturnLoan}
+                className="flex-1 px-5 py-3 rounded-xl bg-emerald-500 text-white font-semibold hover:bg-emerald-600 transition-colors"
+              >
+                Return Book
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cancel Reservation Modal ── */}
+      {reservationToCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setReservationToCancel(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 flex flex-col gap-6">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-red-50 mx-auto">
+              <span className="material-symbols-outlined text-red-500 text-[32px]">event_busy</span>
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Cancel Reservation</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Are you sure you want to cancel your reservation for{" "}
+                <span className="font-semibold text-slate-800">"{reservationToCancel.title}"</span>?
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setReservationToCancel(null)}
+                className="flex-1 px-5 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors"
+              >
+                Keep it
+              </button>
+              <button
+                onClick={handleCancelReservation}
+                className="flex-1 px-5 py-3 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
+              >
+                Cancel reservation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
