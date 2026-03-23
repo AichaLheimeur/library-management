@@ -14,6 +14,8 @@ export default function WishlistPage() {
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState(null);
+  const [bookToRemove, setBookToRemove] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
 
   useEffect(() => {
     if (!isLoggedIn()) {
@@ -37,11 +39,16 @@ export default function WishlistPage() {
     fetchWishlist();
   }, []);
 
-  const handleRemove = async (bookId) => {
+  const handleRemove = async () => {
+    if (!bookToRemove) return;
+    const bookId = bookToRemove.book_id;
     setRemoving(bookId);
+    setBookToRemove(null);
     try {
       await api.delete(`/api/wishlist/${bookId}`);
       setWishlist((prev) => prev.filter((item) => item.book_id !== bookId));
+      setSuccessMsg("Book removed from your wishlist.");
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       console.error("removeFromWishlist error:", err);
     } finally {
@@ -117,7 +124,7 @@ export default function WishlistPage() {
                   {/* Cover */}
                   <div className="w-full aspect-[3/4] overflow-hidden bg-slate-100 relative">
                     <img
-                      src={getPlaceholder(item.title)}
+                      src={item.image_url ? `http://localhost:3000/images/${item.image_url}` : getPlaceholder(item.title)}
                       alt={`Cover of ${item.title}`}
                       className="w-full h-full object-cover"
                     />
@@ -158,7 +165,7 @@ export default function WishlistPage() {
                         View Details
                       </Link>
                       <button
-                        onClick={() => handleRemove(item.book_id)}
+                        onClick={() => setBookToRemove(item)}
                         disabled={removing === item.book_id}
                         className="flex items-center justify-center px-3 py-2.5 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 hover:bg-rose-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Remove from wishlist"
@@ -177,6 +184,56 @@ export default function WishlistPage() {
           </div>
         )}
       </main>
+
+      {/* ── Success Toast ── */}
+      {successMsg && (
+        <div className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-emerald-500 text-white px-5 py-4 rounded-xl shadow-lg">
+          <span className="material-symbols-outlined text-[20px]">check_circle</span>
+          <p className="text-sm font-semibold">{successMsg}</p>
+        </div>
+      )}
+
+      {/* ── Confirmation Modal ── */}
+      {bookToRemove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setBookToRemove(null)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 flex flex-col gap-6">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-rose-50 mx-auto">
+              <span
+                className="material-symbols-outlined text-rose-500 text-[32px]"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                favorite
+              </span>
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Remove from Wishlist</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Are you sure you want to remove{" "}
+                <span className="font-semibold text-slate-800">"{bookToRemove.title}"</span>{" "}
+                from your wishlist?
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setBookToRemove(null)}
+                className="flex-1 px-5 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRemove}
+                className="flex-1 px-5 py-3 rounded-xl bg-rose-500 text-white font-semibold hover:bg-rose-600 transition-colors"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

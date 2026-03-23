@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS books (
     description TEXT,
     total_quantity INT DEFAULT 1,
     available_quantity INT DEFAULT 1,
+    image_url VARCHAR(500) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
