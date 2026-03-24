@@ -37,9 +37,15 @@ exports.borrowBook = async (req, res) => {
 
     const book = books[0];
 
-    // 3️⃣ Vérifier stock
+    // 3️⃣ Vérifier stock (sauf si le user a une réservation READY pour ce livre)
     if (book.available_quantity <= 0) {
-      return res.status(400).json({ message: "Book not available" });
+      const [readyReservation] = await pool.query(
+        "SELECT id FROM reservations WHERE user_id = ? AND book_id = ? AND status = 'READY'",
+        [userId, book_id]
+      );
+      if (readyReservation.length === 0) {
+        return res.status(400).json({ message: "Book not available" });
+      }
     }
 
     // 4️⃣ Vérifier qu'il n'y a pas déjà un emprunt actif pour ce user + ce book
@@ -72,6 +78,12 @@ exports.borrowBook = async (req, res) => {
     // 8️⃣ Supprimer de la wishlist si présent
     await pool.query(
       "DELETE FROM wishlist WHERE user_id = ? AND book_id = ?",
+      [userId, book_id]
+    );
+
+    // 9️⃣ Marquer la réservation READY comme COMPLETED si elle existe
+    await pool.query(
+      "UPDATE reservations SET status = 'COMPLETED' WHERE user_id = ? AND book_id = ? AND status = 'READY'",
       [userId, book_id]
     );
 
@@ -184,6 +196,20 @@ exports.returnBook = async (req, res) => {
       [loan.book_id]
     );
 
+    // 5b. Si une réservation ACTIVE existe pour ce livre → la passer en READY
+    const [activeReservations] = await pool.query(
+      `SELECT id FROM reservations
+       WHERE book_id = ? AND status = 'ACTIVE'
+       ORDER BY reservation_date ASC LIMIT 1`,
+      [loan.book_id]
+    );
+    if (activeReservations.length > 0) {
+      await pool.query(
+        "UPDATE reservations SET status = 'READY' WHERE id = ?",
+        [activeReservations[0].id]
+      );
+    }
+
     // 6️⃣ Mettre à jour les points du user
     const [userRows] = await pool.query(
       "SELECT points FROM users WHERE id = ?",
@@ -210,6 +236,17 @@ exports.returnBook = async (req, res) => {
     await pool.query(
       "UPDATE users SET points = ?, points_blocked_until = ? WHERE id = ?",
       [newPoints, blockedUntil, loan.user_id]
+    );
+
+    // 6b. Log the points change
+    const [bookRows] = await pool.query("SELECT title FROM books WHERE id = ?", [loan.book_id]);
+    const bookTitle = bookRows[0]?.title || "Unknown book";
+    const logReason = isLate
+      ? `Late return: "${bookTitle}" — ${lateDays} day${lateDays > 1 ? "s" : ""} overdue`
+      : `On-time return: "${bookTitle}"`;
+    await pool.query(
+      "INSERT INTO points_log (user_id, change_points, reason) VALUES (?, ?, ?)",
+      [loan.user_id, isLate ? pointsChange : 10, logReason]
     );
 
     // 7️⃣ Réponse

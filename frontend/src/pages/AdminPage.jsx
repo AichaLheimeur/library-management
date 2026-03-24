@@ -22,9 +22,14 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [userToDelete, setUserToDelete] = useState(null);
+  const [userToAdjustPoints, setUserToAdjustPoints] = useState(null);
+  const [adjustPointsValue, setAdjustPointsValue] = useState("");
   const [adminToast, setAdminToast] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [pointsLogUser, setPointsLogUser] = useState(null);
+  const [pointsLog, setPointsLog] = useState([]);
+  const [pointsLogLoading, setPointsLogLoading] = useState(false);
 
   const showAdminToast = (msg) => {
     setAdminToast(msg);
@@ -80,7 +85,46 @@ export default function AdminPage() {
     totalCopies > 0 ? Math.round((borrowedCopies / totalCopies) * 100) : 0;
   const activeReservations = reservations.filter((r) => r.status === "ACTIVE");
 
+  // ── Points log handler ──
+  const handleOpenPointsLog = async (u) => {
+    setPointsLogUser(u);
+    setPointsLog([]);
+    setPointsLogLoading(true);
+    try {
+      const res = await api.get(`/api/users/${u.id}/points-log`);
+      setPointsLog(res.data);
+    } catch {
+      showAdminToast("Could not load points history.");
+    } finally {
+      setPointsLogLoading(false);
+    }
+  };
+
   // ── User management handlers ──
+  const handleAdjustPoints = async () => {
+    if (!userToAdjustPoints) return;
+    const points = parseInt(adjustPointsValue);
+    if (isNaN(points) || points < 0 || points > 200) {
+      showAdminToast("Points must be between 0 and 200.");
+      return;
+    }
+    try {
+      await api.put(`/api/users/${userToAdjustPoints.id}/points`, { points });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userToAdjustPoints.id
+            ? { ...u, points, points_blocked_until: points > 0 ? null : u.points_blocked_until }
+            : u
+        )
+      );
+      showAdminToast(`Points updated to ${points} for ${userToAdjustPoints.email}.`);
+      setUserToAdjustPoints(null);
+      setAdjustPointsValue("");
+    } catch {
+      showAdminToast("Could not update points.");
+    }
+  };
+
   const handleValidateUser = async (u) => {
     try {
       await api.put(`/api/users/${u.id}/validate`);
@@ -757,6 +801,24 @@ export default function AdminPage() {
                               )}
                               {u.role !== "ADMIN" && (
                                 <button
+                                  onClick={() => { setUserToAdjustPoints(u); setAdjustPointsValue(u.points ?? 100); }}
+                                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-600 border border-blue-100 hover:bg-blue-50 transition-colors"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">stars</span>
+                                  Points
+                                </button>
+                              )}
+                              {u.role !== "ADMIN" && (
+                                <button
+                                  onClick={() => handleOpenPointsLog(u)}
+                                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">history</span>
+                                  History
+                                </button>
+                              )}
+                              {u.role !== "ADMIN" && (
+                                <button
                                   onClick={() => setUserToDelete(u)}
                                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors"
                                 >
@@ -939,11 +1001,137 @@ export default function AdminPage() {
         document.body
       )}
 
+      {/* ── Adjust Points Modal ── */}
+      {userToAdjustPoints && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4" style={{backgroundColor:"rgba(0,0,0,0.4)"}} onClick={() => { setUserToAdjustPoints(null); setAdjustPointsValue(""); }}>
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 flex flex-col gap-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-blue-50 mx-auto">
+              <span className="material-symbols-outlined text-blue-500 text-[32px]">stars</span>
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-slate-900 mb-1">Adjust Points</h3>
+              <p className="text-slate-500 text-sm">{userToAdjustPoints.email}</p>
+              <p className="text-xs text-slate-400 mt-1">Current: <span className="font-bold text-slate-700">{userToAdjustPoints.points ?? 100} pts</span></p>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">New Points (0 – 200)</label>
+              <input
+                type="number"
+                min="0"
+                max="200"
+                value={adjustPointsValue}
+                onChange={(e) => setAdjustPointsValue(e.target.value === "" ? "" : parseInt(e.target.value))}
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-center text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="e.g. 80"
+              />
+              {parseInt(adjustPointsValue) === 0 && (
+                <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[13px]">warning</span>
+                  Setting to 0 will suspend this user for 15 days.
+                </p>
+              )}
+              {parseInt(adjustPointsValue) > 0 && (userToAdjustPoints.points_blocked_until && new Date(userToAdjustPoints.points_blocked_until) > new Date()) && (
+                <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                  The suspension will be lifted.
+                </p>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setUserToAdjustPoints(null); setAdjustPointsValue(""); }}
+                className="flex-1 px-5 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAdjustPoints}
+                className="flex-1 px-5 py-3 rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600 transition-colors"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {adminToast && createPortal(
         <div className="fixed top-6 right-6 z-[9999] flex items-center gap-3 bg-emerald-500 text-white px-5 py-4 rounded-xl shadow-lg">
           <span className="material-symbols-outlined text-[20px]">check_circle</span>
           <p className="text-sm font-semibold">{adminToast}</p>
         </div>,
+        document.body
+      )}
+
+      {/* ── Points Log Panel ── */}
+      {pointsLogUser && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={() => setPointsLogUser(null)} />
+          <div className="fixed top-0 right-0 z-[9999] h-full w-96 bg-white shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
+              <div>
+                <h3 className="font-bold text-slate-900">Points History</h3>
+                <p className="text-xs text-slate-400 mt-0.5 truncate">{pointsLogUser.email}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`text-sm font-bold px-3 py-1 rounded-full ${
+                  pointsLogUser.points_blocked_until && new Date(pointsLogUser.points_blocked_until) > new Date()
+                    ? "bg-red-100 text-red-600"
+                    : "bg-blue-50 text-blue-600"
+                }`}>
+                  {pointsLogUser.points ?? 100} pts
+                </span>
+                <button onClick={() => setPointsLogUser(null)} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                  <span className="material-symbols-outlined text-slate-500 text-[18px]">close</span>
+                </button>
+              </div>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+              {pointsLogLoading ? (
+                <div className="flex justify-center items-center h-32">
+                  <div className="animate-spin rounded-full h-8 w-8 border-[3px] border-slate-200 border-t-primary"></div>
+                </div>
+              ) : pointsLog.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3">
+                  <span className="material-symbols-outlined text-5xl">history</span>
+                  <p className="text-sm font-medium">No points history yet</p>
+                </div>
+              ) : (
+                pointsLog.map((log) => (
+                  <div key={log.id} className="px-6 py-4 flex items-start gap-4">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                      log.change_points > 0 ? "bg-emerald-100" : "bg-red-100"
+                    }`}>
+                      <span className={`material-symbols-outlined text-[18px] ${
+                        log.change_points > 0 ? "text-emerald-600" : "text-red-500"
+                      }`}>
+                        {log.change_points > 0 ? "arrow_upward" : "arrow_downward"}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-700 leading-snug">{log.reason}</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {new Date(log.created_at).toLocaleDateString("en-US", {
+                          month: "short", day: "numeric", year: "numeric",
+                          hour: "2-digit", minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    <span className={`text-sm font-bold shrink-0 ${
+                      log.change_points > 0 ? "text-emerald-600" : "text-red-500"
+                    }`}>
+                      {log.change_points > 0 ? `+${log.change_points}` : log.change_points}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>,
         document.body
       )}
 

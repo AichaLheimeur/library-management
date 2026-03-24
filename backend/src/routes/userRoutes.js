@@ -9,6 +9,8 @@ const {
   getAllUsers,
   getUserById,
   validateUser,
+  adjustPoints,
+  getPointsLog,
   deleteUser,
 } = require("../controllers/userController");
 
@@ -27,6 +29,14 @@ router.get("/:id", protect, isAdmin, getUserById);
 // ADMIN - Validate / invalidate a user
 // PUT /api/users/:id/validate
 router.put("/:id/validate", protect, isAdmin, validateUser);
+
+// ADMIN - Adjust user points
+// PUT /api/users/:id/points
+router.put("/:id/points", protect, isAdmin, adjustPoints);
+
+// ADMIN - Get points history for a user
+// GET /api/users/:id/points-log
+router.get("/:id/points-log", protect, isAdmin, getPointsLog);
 
 // ADMIN - Delete a user
 // DELETE /api/users/:id

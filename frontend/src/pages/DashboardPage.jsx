@@ -125,6 +125,23 @@ export default function DashboardPage() {
     }
   };
 
+  const handleBorrowFromReservation = async (r) => {
+    try {
+      await api.post("/api/loans", { book_id: r.book_id });
+      const [loansRes, reservationsRes, meRes] = await Promise.all([
+        api.get("/api/loans/me"),
+        api.get("/api/reservations/me"),
+        api.get("/api/users/me"),
+      ]);
+      setLoans(loansRes.data);
+      setReservations(reservationsRes.data);
+      setUserPoints(meRes.data.points ?? 100);
+      showToast(`"${r.title}" borrowed successfully!`);
+    } catch (err) {
+      showError(err?.response?.data?.message || "Could not borrow book.");
+    }
+  };
+
   const handleCancelReservation = async () => {
     if (!reservationToCancel) return;
     const id = reservationToCancel.id;
@@ -140,7 +157,7 @@ export default function DashboardPage() {
 
   const activeLoans = loans.filter((l) => l.status === "BORROWED" || l.status === "LATE");
   const returnedLoans = loans.filter((l) => l.status === "RETURNED");
-  const activeReservations = reservations.filter((r) => r.status === "ACTIVE");
+  const activeReservations = reservations.filter((r) => r.status === "ACTIVE" || r.status === "READY");
   const dueSoonCount = activeLoans.filter((l) => isDueSoon(l.due_date)).length;
   const isBlocked = pointsBlockedUntil && new Date(pointsBlockedUntil) > new Date();
 
@@ -452,7 +469,11 @@ export default function DashboardPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {activeReservations.map((r) => (
-                    <div key={r.id} className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-5 group hover:border-primary/20 hover:shadow-md transition-all">
+                    <div key={r.id} className={`bg-white p-8 rounded-2xl border shadow-sm flex flex-col gap-5 group transition-all ${
+                      r.status === "READY"
+                        ? "border-emerald-200 shadow-emerald-100 hover:shadow-md"
+                        : "border-slate-100 hover:border-primary/20 hover:shadow-md"
+                    }`}>
                       <div className="flex items-center gap-5">
                         <div className="w-16 h-24 rounded-xl overflow-hidden shrink-0 bg-primary/10 shadow-sm">
                           <img
@@ -462,19 +483,37 @@ export default function DashboardPage() {
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full">Waiting</span>
+                          {r.status === "READY" ? (
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full animate-pulse">
+                              Available now!
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full">Waiting</span>
+                          )}
                           <h4 className="font-bold text-slate-800 text-base mt-2 leading-tight">{r.title}</h4>
                           <p className="text-sm text-slate-400 mt-0.5">{r.author}</p>
                           <p className="text-xs text-slate-400 mt-2">Reserved: {formatDate(r.reservation_date)}</p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setReservationToCancel(r)}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">cancel</span>
-                        Cancel reservation
-                      </button>
+                      {r.status === "READY" ? (
+                        activeLoans.some((l) => Number(l.book_id) === Number(r.book_id))
+                          ? <p className="text-xs text-center text-slate-400 py-2">You already have this book borrowed.</p>
+                          : <button
+                              onClick={() => handleBorrowFromReservation(r)}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">book</span>
+                              Borrow now
+                            </button>
+                      ) : (
+                        <button
+                          onClick={() => setReservationToCancel(r)}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">cancel</span>
+                          Cancel reservation
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
