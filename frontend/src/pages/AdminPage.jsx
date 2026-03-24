@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
@@ -9,30 +10,6 @@ const today = new Date().toLocaleDateString("en-US", {
   year: "numeric",
 });
 
-function parseDaysOverdue(reason) {
-  const match = reason?.match(/\d+/);
-  return match ? parseInt(match[0]) : 0;
-}
-
-function SeverityBadge({ days }) {
-  if (days >= 7)
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700">
-        Critical
-      </span>
-    );
-  if (days >= 3)
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
-        Warning
-      </span>
-    );
-  return (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
-      Pending
-    </span>
-  );
-}
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -45,6 +22,7 @@ export default function AdminPage() {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [penaltyToConfirm, setPenaltyToConfirm] = useState(null);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -76,10 +54,9 @@ export default function AdminPage() {
     ["BORROWED", "LATE"].includes(l.status)
   );
   const overdueLoans = loans.filter((l) => l.status === "LATE");
-  const totalPenaltiesAmount = penalties.reduce(
-    (sum, p) => sum + parseFloat(p.amount || 0),
-    0
-  );
+  const totalPenaltiesAmount = penalties
+    .filter((p) => p.status === "PENDING")
+    .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
   const totalCopies = books.reduce((sum, b) => sum + (b.total_quantity || 0), 0);
   const availableCopies = books.reduce(
     (sum, b) => sum + (b.available_quantity || 0),
@@ -100,6 +77,7 @@ export default function AdminPage() {
   );
 
   return (
+    <>
     <div className="flex h-screen overflow-hidden font-display bg-slate-100 text-slate-900">
 
       {/* ── Sidebar ── */}
@@ -324,7 +302,12 @@ export default function AdminPage() {
               {/* ── Penalties Table ── */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden" id="penalties">
                 <div className="p-8 border-b border-slate-200 flex items-center justify-between">
-                  <h4 className="font-bold text-xl">Overdue Books &amp; Penalties</h4>
+                  <div>
+                    <h4 className="font-bold text-xl">Penalties</h4>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {penalties.filter((p) => p.status === "PENDING").length} pending · {penalties.filter((p) => p.status === "PAID").length} paid
+                    </p>
+                  </div>
                   <span className="text-xs text-slate-500">{filteredPenalties.length} record{filteredPenalties.length !== 1 ? "s" : ""}</span>
                 </div>
                 {filteredPenalties.length === 0 ? (
@@ -341,32 +324,56 @@ export default function AdminPage() {
                           <th className="px-8 py-5 text-xs font-bold text-slate-500 uppercase">User</th>
                           <th className="px-8 py-5 text-xs font-bold text-slate-500 uppercase">Reason</th>
                           <th className="px-8 py-5 text-xs font-bold text-slate-500 uppercase">Amount</th>
-                          <th className="px-8 py-5 text-xs font-bold text-slate-500 uppercase">Severity</th>
+                          <th className="px-8 py-5 text-xs font-bold text-slate-500 uppercase">Status</th>
+                          <th className="px-8 py-5 text-xs font-bold text-slate-500 uppercase">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {filteredPenalties.map((p) => {
-                          const days = parseDaysOverdue(p.reason);
-                          return (
-                            <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-8 py-5">
-                                <p className="text-sm font-bold">{p.book_title}</p>
-                              </td>
-                              <td className="px-8 py-5">
-                                <p className="text-sm font-medium">{p.email}</p>
-                              </td>
-                              <td className="px-8 py-5">
-                                <p className="text-sm text-slate-500">{p.reason}</p>
-                              </td>
-                              <td className="px-8 py-5">
-                                <p className="text-sm font-bold">{parseFloat(p.amount).toFixed(2)} €</p>
-                              </td>
-                              <td className="px-8 py-5">
-                                <SeverityBadge days={days} />
-                              </td>
-                            </tr>
-                          );
-                        })}
+                        {filteredPenalties.map((p) => (
+                          <tr key={p.id} className={`transition-colors ${p.status === "PAID" ? "bg-slate-50/50 opacity-60" : "hover:bg-slate-50"}`}>
+                            <td className="px-8 py-5">
+                              <p className={`text-sm font-bold ${p.status === "PAID" ? "line-through text-slate-400" : ""}`}>{p.book_title}</p>
+                            </td>
+                            <td className="px-8 py-5">
+                              <p className="text-sm font-medium">{p.email}</p>
+                            </td>
+                            <td className="px-8 py-5">
+                              <p className="text-sm text-slate-500">{p.reason}</p>
+                            </td>
+                            <td className="px-8 py-5">
+                              <p className="text-sm font-bold">{parseFloat(p.amount).toFixed(2)} €</p>
+                            </td>
+                            <td className="px-8 py-5">
+                              {p.status === "PAID" ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                                  <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                                  Paid
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                                  <span className="material-symbols-outlined text-[13px]">schedule</span>
+                                  Pending
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-8 py-5">
+                              {p.status === "PENDING" ? (
+                                <button
+                                  onClick={() => setPenaltyToConfirm(p)}
+                                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-slate-500 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-colors"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">payments</span>
+                                  Mark as Paid
+                                </button>
+                              ) : (
+                                <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-emerald-600 border border-emerald-100 bg-emerald-50 w-fit">
+                                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                                  Paid
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -441,5 +448,49 @@ export default function AdminPage() {
       </main>
       </div>
     </div>
+
+      {penaltyToConfirm && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setPenaltyToConfirm(null)}>
+          <div style={{ position: 'relative', zIndex: 10000, backgroundColor: 'white', borderRadius: '1rem', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', width: '100%', maxWidth: '28rem', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-emerald-50 mx-auto">
+              <span className="material-symbols-outlined text-emerald-500 text-[32px]">payments</span>
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Confirm Payment</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Confirm that <span className="font-semibold text-slate-800">{penaltyToConfirm.email}</span> has paid the penalty of{" "}
+                <span className="font-semibold text-slate-800">{parseFloat(penaltyToConfirm.amount).toFixed(2)} €</span> for{" "}
+                <span className="font-semibold text-slate-800">"{penaltyToConfirm.book_title}"</span>?
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPenaltyToConfirm(null)}
+                className="flex-1 px-5 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await api.put(`/api/penalties/${penaltyToConfirm.id}/mark-paid`);
+                    setPenalties((prev) =>
+                      prev.map((x) => x.id === penaltyToConfirm.id ? { ...x, status: "PAID" } : x)
+                    );
+                    setPenaltyToConfirm(null);
+                  } catch {
+                    console.error("Failed to mark penalty as paid");
+                  }
+                }}
+                className="flex-1 px-5 py-3 rounded-xl bg-emerald-500 text-white font-semibold hover:bg-emerald-600 transition-colors"
+              >
+                Confirm Payment
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }

@@ -23,12 +23,19 @@ export default function BookDetailPage() {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [wishlistMsg, setWishlistMsg] = useState(null);
   const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [alreadyBorrowed, setAlreadyBorrowed] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn()) return;
     api.get("/api/wishlist").then((res) => {
       const ids = res.data.map((item) => item.book_id);
       setIsWishlisted(ids.includes(Number(id)));
+    }).catch(() => {});
+    api.get("/api/loans/me").then((res) => {
+      const borrowed = res.data.some(
+        (l) => l.book_id === Number(id) && ["BORROWED", "LATE"].includes(l.status)
+      );
+      setAlreadyBorrowed(borrowed);
     }).catch(() => {});
   }, [id]);
 
@@ -64,6 +71,8 @@ export default function BookDetailPage() {
     try {
       await api.post("/api/loans", { book_id: Number(id) });
       setBorrowSuccess(true);
+      setIsWishlisted(false);
+      setAlreadyBorrowed(true);
     } catch (err) {
       setBorrowError(err.response?.data?.message || "Failed to borrow. Please try again.");
     } finally {
@@ -233,9 +242,11 @@ export default function BookDetailPage() {
                 {!isAdmin() && (isAvailable ? (
                   <button
                     onClick={handleBorrow}
-                    disabled={borrowing || borrowSuccess}
+                    disabled={borrowing || borrowSuccess || alreadyBorrowed}
                     className={`flex flex-1 items-center justify-center gap-2 px-8 py-5 rounded-xl font-bold text-lg transition-all active:scale-[0.98] ${
-                      borrowSuccess
+                      alreadyBorrowed
+                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                        : borrowSuccess
                         ? "bg-green-500 text-white cursor-default"
                         : borrowing
                         ? "bg-primary/70 text-white cursor-not-allowed"
@@ -246,6 +257,11 @@ export default function BookDetailPage() {
                       <>
                         <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
                         Borrowing…
+                      </>
+                    ) : alreadyBorrowed ? (
+                      <>
+                        <span className="material-symbols-outlined">block</span>
+                        Already Borrowed
                       </>
                     ) : borrowSuccess ? (
                       <>
@@ -292,8 +308,9 @@ export default function BookDetailPage() {
                 {!isAdmin() && (
                   <button
                     onClick={handleWishlist}
-                    disabled={wishlistLoading}
-                    className={`flex items-center justify-center gap-2 px-8 py-5 rounded-xl font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                    disabled={wishlistLoading || alreadyBorrowed || borrowSuccess}
+                    title={alreadyBorrowed || borrowSuccess ? "You already borrowed this book" : ""}
+                    className={`flex items-center justify-center gap-2 px-8 py-5 rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       isWishlisted
                         ? "bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100"
                         : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
@@ -306,7 +323,7 @@ export default function BookDetailPage() {
                         favorite
                       </span>
                     )}
-                    {isWishlisted ? "Wishlisted" : "Wishlist"}
+                    {alreadyBorrowed || borrowSuccess ? "Already Borrowed" : isWishlisted ? "Wishlisted" : "Wishlist"}
                   </button>
                 )}
               </div>

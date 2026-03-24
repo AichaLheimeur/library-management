@@ -65,7 +65,7 @@ exports.getMyReservations = async (req, res) => {
     const userId = req.user.id;
 
     const [reservations] = await pool.query(
-      `SELECT r.id, r.book_id, b.title, b.author, r.reservation_date, r.status
+      `SELECT r.id, r.book_id, b.title, b.author, b.image_url, r.reservation_date, r.status
        FROM reservations r
        JOIN books b ON r.book_id = b.id
        WHERE r.user_id = ?
