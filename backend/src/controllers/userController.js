@@ -1,11 +1,27 @@
 const pool = require("../config/db");
 
+// GET /api/users/me
+// User: get own profile
+exports.getMe = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      "SELECT id, email, role, is_validated, points, points_blocked_until, created_at FROM users WHERE id = ?",
+      [req.user.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ message: "User not found" });
+    return res.json(rows[0]);
+  } catch (error) {
+    console.error("getMe error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 // GET /api/users
 // Admin: get all users (without password)
 exports.getAllUsers = async (req, res) => {
   try {
     const [users] = await pool.query(
-      "SELECT id, email, role, is_validated, created_at FROM users"
+      "SELECT id, email, role, is_validated, points, points_blocked_until, created_at FROM users"
     );
     return res.json(users);
   } catch (error) {

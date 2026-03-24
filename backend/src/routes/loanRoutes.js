@@ -10,6 +10,7 @@ const {
   getAllLoans,
   returnBook,
   clearMyHistory,
+  adminClearHistory,
 } = require("../controllers/loanController");
 
 // 🔹 USER - Borrow a book
@@ -31,5 +32,9 @@ router.delete("/history", protect, clearMyHistory);
 // 🔹 ADMIN - See all loans
 // GET /api/loans
 router.get("/", protect, isAdmin, getAllLoans);
+
+// 🔹 ADMIN - Clear returned loans history
+// DELETE /api/loans/admin/history
+router.delete("/admin/history", protect, isAdmin, adminClearHistory);
 
 module.exports = router;

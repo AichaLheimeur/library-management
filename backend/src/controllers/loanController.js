@@ -10,51 +10,66 @@ exports.borrowBook = async (req, res) => {
       return res.status(400).json({ message: "book_id is required" });
     }
 
-    // 1️⃣ Vérifier que le livre existe
-    const [books] = await pool.query("SELECT * FROM books WHERE id = ?", [
-      book_id,
-    ]);
+    // 1️⃣ Vérifier que le compte est validé + points + blocage
+    const [userRows] = await pool.query(
+      "SELECT is_validated, points, points_blocked_until FROM users WHERE id = ?",
+      [userId]
+    );
+    if (userRows.length === 0 || !userRows[0].is_validated) {
+      return res.status(403).json({ message: "Your account is pending validation by the library. You cannot borrow books yet." });
+    }
 
+    const { points_blocked_until } = userRows[0];
+    if (points_blocked_until && new Date(points_blocked_until) > new Date()) {
+      const unblockDate = new Date(points_blocked_until).toLocaleDateString("en-US", {
+        year: "numeric", month: "long", day: "numeric",
+      });
+      return res.status(403).json({
+        message: `Your account is suspended due to 0 points. You can borrow again on ${unblockDate}.`,
+      });
+    }
+
+    // 2️⃣ Vérifier que le livre existe
+    const [books] = await pool.query("SELECT * FROM books WHERE id = ?", [book_id]);
     if (books.length === 0) {
       return res.status(404).json({ message: "Book not found" });
     }
 
     const book = books[0];
 
-    // 2️⃣ Vérifier stock
+    // 3️⃣ Vérifier stock
     if (book.available_quantity <= 0) {
       return res.status(400).json({ message: "Book not available" });
     }
 
-    // 2️⃣bis Vérifier qu'il n'y a pas déjà un emprunt actif pour ce user + ce book
+    // 4️⃣ Vérifier qu'il n'y a pas déjà un emprunt actif pour ce user + ce book
     const [activeLoans] = await pool.query(
       "SELECT id FROM loans WHERE user_id = ? AND book_id = ? AND status IN ('BORROWED', 'LATE')",
       [userId, book_id]
     );
-
     if (activeLoans.length > 0) {
       return res.status(400).json({ message: "You already have an active loan for this book" });
     }
 
-    // 3️⃣ Calculer dates (14 jours)
+    // 5️⃣ Calculer dates (14 jours)
     const borrowDate = new Date();
     const dueDate = new Date();
     dueDate.setDate(borrowDate.getDate() + 14);
 
-    // 4️⃣ Créer loan
+    // 6️⃣ Créer loan
     await pool.query(
       `INSERT INTO loans (user_id, book_id, borrow_date, due_date, status)
        VALUES (?, ?, ?, ?, 'BORROWED')`,
       [userId, book_id, borrowDate, dueDate]
     );
 
-    // 5️⃣ Diminuer stock
+    // 7️⃣ Diminuer stock
     await pool.query(
       "UPDATE books SET available_quantity = available_quantity - 1 WHERE id = ?",
       [book_id]
     );
 
-    // 6️⃣ Supprimer de la wishlist si présent
+    // 8️⃣ Supprimer de la wishlist si présent
     await pool.query(
       "DELETE FROM wishlist WHERE user_id = ? AND book_id = ?",
       [userId, book_id]
@@ -103,10 +118,28 @@ exports.clearMyHistory = async (req, res) => {
   }
 };
 
+// 🔹 Admin - Clear all returned loans
+exports.adminClearHistory = async (req, res) => {
+  try {
+    await pool.query("DELETE FROM loans WHERE status = 'RETURNED'");
+    return res.json({ message: "Loan history cleared" });
+  } catch (error) {
+    console.error("adminClearHistory error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 // 🔹 Admin - Get all loans
 exports.getAllLoans = async (req, res) => {
   try {
-    const [loans] = await pool.query("SELECT * FROM loans");
+    const [loans] = await pool.query(
+      `SELECT l.id, l.user_id, u.email, l.book_id, b.title, b.author,
+              l.borrow_date, l.due_date, l.return_date, l.status
+       FROM loans l
+       JOIN users u ON l.user_id = u.id
+       JOIN books b ON l.book_id = b.id
+       ORDER BY l.borrow_date DESC`
+    );
     return res.json(loans);
   } catch (error) {
     console.error("getAllLoans error:", error);
@@ -120,17 +153,14 @@ exports.returnBook = async (req, res) => {
     const loanId = req.params.id;
 
     // 1️⃣ Vérifier que l'emprunt existe
-    const [rows] = await pool.query("SELECT * FROM loans WHERE id = ?", [
-      loanId,
-    ]);
-
+    const [rows] = await pool.query("SELECT * FROM loans WHERE id = ?", [loanId]);
     if (rows.length === 0) {
       return res.status(404).json({ message: "Loan not found" });
     }
 
     const loan = rows[0];
 
-    // 2️⃣ Autoriser uniquement si le statut est BORROWED ou LATE
+    // 2️⃣ Autoriser uniquement si BORROWED ou LATE
     if (loan.status !== "BORROWED" && loan.status !== "LATE") {
       return res.status(400).json({ message: "Book already returned" });
     }
@@ -142,7 +172,7 @@ exports.returnBook = async (req, res) => {
     const lateDays = Math.floor((returnDate - dueDate) / msPerDay);
     const isLate = lateDays > 0;
 
-    // 4️⃣ Mettre à jour le loan — always RETURNED when user actively returns
+    // 4️⃣ Mettre à jour le loan
     await pool.query(
       "UPDATE loans SET status='RETURNED', return_date=NOW() WHERE id=?",
       [loanId]
@@ -154,27 +184,51 @@ exports.returnBook = async (req, res) => {
       [loan.book_id]
     );
 
-    // 6️⃣ Créer une pénalité si retard (seulement si pas déjà créée)
+    // 6️⃣ Mettre à jour les points du user
+    const [userRows] = await pool.query(
+      "SELECT points FROM users WHERE id = ?",
+      [loan.user_id]
+    );
+    const currentPoints = userRows[0].points;
+
+    let newPoints;
+    let pointsChange;
+    let blockedUntil = null;
+
     if (isLate) {
-      const [existingPenalty] = await pool.query(
-        "SELECT id FROM penalties WHERE loan_id = ?",
-        [loanId]
-      );
-      if (existingPenalty.length === 0) {
-        const amount = lateDays * 10.0;
-        const reason = `Late return: ${lateDays} day${lateDays > 1 ? "s" : ""} overdue`;
-        await pool.query(
-          "INSERT INTO penalties (user_id, loan_id, amount, reason) VALUES (?, ?, ?, ?)",
-          [loan.user_id, loanId, amount, reason]
-        );
+      pointsChange = -(lateDays * 5);
+      newPoints = Math.max(0, currentPoints + pointsChange);
+      if (newPoints === 0) {
+        blockedUntil = new Date();
+        blockedUntil.setDate(blockedUntil.getDate() + 15);
       }
+    } else {
+      pointsChange = 10;
+      newPoints = currentPoints + pointsChange;
     }
 
-    return res.json({
-      message: isLate
-        ? `Book returned late. Penalty applied: ${lateDays} day(s) × 10.00 = ${(lateDays * 10).toFixed(2)} €`
-        : "Book returned successfully",
-    });
+    await pool.query(
+      "UPDATE users SET points = ?, points_blocked_until = ? WHERE id = ?",
+      [newPoints, blockedUntil, loan.user_id]
+    );
+
+    // 7️⃣ Réponse
+    if (isLate) {
+      return res.json({
+        message: `Book returned late. You lost ${Math.abs(pointsChange)} points (${lateDays} day${lateDays > 1 ? "s" : ""} overdue).`,
+        points: newPoints,
+        pointsChange,
+        blocked: blockedUntil !== null,
+        blockedUntil,
+      });
+    } else {
+      return res.json({
+        message: `Book returned on time! You earned +10 points.`,
+        points: newPoints,
+        pointsChange: 10,
+        blocked: false,
+      });
+    }
   } catch (error) {
     console.error("returnBook error:", error);
     return res.status(500).json({ message: "Server error" });
