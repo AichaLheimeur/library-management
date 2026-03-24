@@ -50,7 +50,9 @@ export default function DashboardPage() {
 
   const [loans, setLoans] = useState([]);
   const [reservations, setReservations] = useState([]);
-  const [penalties, setPenalties] = useState([]);
+  const [userPoints, setUserPoints] = useState(100);
+  const [pointsBlockedUntil, setPointsBlockedUntil] = useState(null);
+  const [isValidated, setIsValidated] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reservationToCancel, setReservationToCancel] = useState(null);
@@ -74,14 +76,16 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const [loansRes, reservationsRes, penaltiesRes] = await Promise.all([
+        const [loansRes, reservationsRes, meRes] = await Promise.all([
           api.get("/api/loans/me"),
           api.get("/api/reservations/me"),
-          api.get("/api/penalties/me"),
+          api.get("/api/users/me"),
         ]);
         setLoans(loansRes.data);
         setReservations(reservationsRes.data);
-        setPenalties(penaltiesRes.data);
+        setIsValidated(meRes.data.is_validated);
+        setUserPoints(meRes.data.points ?? 100);
+        setPointsBlockedUntil(meRes.data.points_blocked_until ?? null);
       } catch {
         setError("Failed to load dashboard data.");
       } finally {
@@ -100,19 +104,21 @@ export default function DashboardPage() {
     try {
       const res = await api.put(`/api/loans/${id}/return`);
       setLoans((prev) => prev.map((l) => l.id === id ? { ...l, status: "RETURNED", return_date: new Date().toISOString() } : l));
-      const penaltiesRes = await api.get("/api/penalties/me");
-      setPenalties(penaltiesRes.data);
+      const newPoints = res.data?.points;
+      const pointsChange = res.data?.pointsChange;
+      const blocked = res.data?.blocked;
+      const blockedUntil = res.data?.blockedUntil;
+      if (newPoints !== undefined) setUserPoints(newPoints);
+      if (blockedUntil !== undefined) setPointsBlockedUntil(blockedUntil);
       if (wasLate) {
-        const msg = res.data?.message || "";
-        const match = msg.match(/([\d.]+)\s*€/);
-        const amount = match ? match[1] : null;
+        const lostPoints = Math.abs(pointsChange || 0);
         showError(
-          amount
-            ? `"${title}" returned. A penalty of ${amount} € has been applied. Please settle it at the library.`
-            : `"${title}" returned late. Please settle your penalty at the library.`
+          blocked
+            ? `"${title}" returned late. You lost ${lostPoints} pts. Your account is suspended for 15 days.`
+            : `"${title}" returned late. You lost ${lostPoints} pts. Remaining: ${newPoints} pts.`
         );
       } else {
-        showToast(`"${title}" returned successfully.`);
+        showToast(`"${title}" returned on time! +10 pts. Total: ${newPoints} pts.`);
       }
     } catch {
       showError("Could not return book. Please try again.");
@@ -135,10 +141,8 @@ export default function DashboardPage() {
   const activeLoans = loans.filter((l) => l.status === "BORROWED" || l.status === "LATE");
   const returnedLoans = loans.filter((l) => l.status === "RETURNED");
   const activeReservations = reservations.filter((r) => r.status === "ACTIVE");
-  const totalPenalties = penalties
-    .filter((p) => p.status === "PENDING")
-    .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
   const dueSoonCount = activeLoans.filter((l) => isDueSoon(l.due_date)).length;
+  const isBlocked = pointsBlockedUntil && new Date(pointsBlockedUntil) > new Date();
 
   if (loading) {
     return (
@@ -177,9 +181,9 @@ export default function DashboardPage() {
               <span className="material-symbols-outlined">event_upcoming</span>
               Reservations
             </a>
-            <a href="#penalties" className="flex items-center gap-4 text-slate-500 px-5 py-4 font-semibold text-sm tracking-wider uppercase transition-all hover:bg-slate-200/50 hover:translate-x-1 duration-200 rounded-xl">
-              <span className="material-symbols-outlined">payments</span>
-              Penalties
+            <a href="#points" className="flex items-center gap-4 text-slate-500 px-5 py-4 font-semibold text-sm tracking-wider uppercase transition-all hover:bg-slate-200/50 hover:translate-x-1 duration-200 rounded-xl">
+              <span className="material-symbols-outlined">stars</span>
+              My Points
             </a>
           </nav>
 
@@ -215,6 +219,34 @@ export default function DashboardPage() {
         <main className="flex-1 bg-slate-50 p-8 lg:p-12">
         <div className="space-y-12">
 
+        {/* Pending validation banner */}
+        {!isValidated && (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-6 py-4 mb-2">
+            <span className="material-symbols-outlined text-amber-500 text-[22px]">schedule</span>
+            <div>
+              <p className="text-sm font-semibold text-amber-800">Your account is pending validation</p>
+              <p className="text-xs text-amber-600 mt-0.5">A librarian will validate your account shortly. You will then be able to borrow books.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Suspension banner */}
+        {isBlocked && (
+          <div className="flex items-start gap-4 bg-red-50 border border-red-200 rounded-2xl px-6 py-5">
+            <span className="material-symbols-outlined text-red-500 text-[26px] mt-0.5">block</span>
+            <div>
+              <p className="text-sm font-bold text-red-700">Your account is suspended</p>
+              <p className="text-xs text-red-500 mt-1 leading-relaxed">
+                You reached 0 points due to late returns. You cannot borrow or reserve books until{" "}
+                <span className="font-bold">
+                  {new Date(pointsBlockedUntil).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                </span>.
+                Return books on time to earn points back.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Summary Cards */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
@@ -242,12 +274,12 @@ export default function DashboardPage() {
           </div>
 
           <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-5 hover:scale-[1.02] transition-transform cursor-pointer">
-            <div className="p-3 bg-red-50 rounded-full w-fit text-red-700">
-              <span className="material-symbols-outlined">payments</span>
+            <div className={`p-3 rounded-full w-fit ${isBlocked ? "bg-red-50 text-red-700" : "bg-yellow-50 text-yellow-600"}`}>
+              <span className="material-symbols-outlined">stars</span>
             </div>
             <div>
-              <p className="text-slate-500 text-xs font-semibold uppercase mb-2">Penalties</p>
-              <h3 className="text-4xl font-bold text-primary">{totalPenalties.toFixed(2)} €</h3>
+              <p className="text-slate-500 text-xs font-semibold uppercase mb-2">My Points</p>
+              <h3 className={`text-4xl font-bold ${isBlocked ? "text-red-500" : "text-primary"}`}>{userPoints}</h3>
             </div>
           </div>
 
@@ -451,73 +483,57 @@ export default function DashboardPage() {
 
           </div>
 
-          {/* Right: Penalties + CTA */}
-          <div id="penalties" className="space-y-6">
+          {/* Right: Points + CTA */}
+          <div id="points" className="space-y-6">
 
             <section className="bg-primary text-white p-10 rounded-3xl shadow-xl relative overflow-hidden">
               <div className="relative z-10">
-                <div className="flex items-start justify-between mb-1">
-                  <h3 className="text-2xl font-bold">My Penalties</h3>
-                  {penalties.some((p) => p.status === "PAID") && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          await api.delete("/api/penalties/history");
-                          setPenalties((prev) => prev.filter((p) => p.status !== "PAID"));
-                          showToast("Penalty history cleared.");
-                        } catch {
-                          showError("Could not clear history.");
-                        }
-                      }}
-                      className="text-[11px] font-semibold text-white/50 hover:text-white transition-colors"
-                    >
-                      Clear history
-                    </button>
-                  )}
-                </div>
+                <h3 className="text-2xl font-bold mb-1">My Points</h3>
                 <p className="text-white/60 text-xs mb-8">
-                  {totalPenalties === 0 ? "Good news! Your record is clear." : "Please settle your outstanding penalties."}
+                  {isBlocked
+                    ? "Your account is suspended. Return on time to earn points back."
+                    : userPoints >= 80
+                    ? "Excellent standing! Keep returning books on time."
+                    : userPoints >= 50
+                    ? "Good standing. Avoid late returns to keep your points."
+                    : "Low points. Be careful — late returns cost 5 pts/day."}
                 </p>
 
                 <div className="flex flex-col items-center justify-center py-6 text-center space-y-4">
-                  <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center">
+                  <div className={`w-20 h-20 rounded-full flex items-center justify-center ${isBlocked ? "bg-red-500/20" : "bg-white/10"}`}>
                     <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                      {totalPenalties === 0 ? "verified" : "payments"}
+                      {isBlocked ? "block" : userPoints >= 80 ? "verified" : "stars"}
                     </span>
                   </div>
                   <div>
-                    <h4 className="text-4xl font-extrabold">{totalPenalties.toFixed(2)} €</h4>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mt-2 text-white/60">Total Outstanding</p>
+                    <h4 className="text-5xl font-extrabold">{userPoints}</h4>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mt-2 text-white/60">Points</p>
                   </div>
                 </div>
 
-                {penalties.length > 0 && (
-                  <div className="mt-8 space-y-3">
-                    {penalties.map((p) => (
-                      <div key={p.id} className={`rounded-xl p-4 ${p.status === "PAID" ? "bg-white/5 opacity-50" : "bg-white/10"}`}>
-                        <div className="flex justify-between items-start gap-2">
-                          <p className={`text-sm font-semibold ${p.status === "PAID" ? "line-through" : ""}`}>{p.book_title}</p>
-                          {p.status === "PAID" ? (
-                            <span className="text-[10px] font-bold bg-green-500/30 text-green-300 px-2 py-0.5 rounded-full shrink-0">PAID</span>
-                          ) : (
-                            <span className="text-[10px] font-bold bg-red-500/30 text-red-300 px-2 py-0.5 rounded-full shrink-0">PENDING</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-white/60 mt-0.5">{p.reason}</p>
-                        <div className="flex justify-between items-center mt-3">
-                          <p className="text-base font-bold">{parseFloat(p.amount).toFixed(2)} €</p>
-                          {p.status === "PENDING" && (
-                            <p className="text-[10px] text-amber-300 font-medium flex items-center gap-1">
-                              <span className="material-symbols-outlined text-[13px]">store</span>
-                              Settle at the library
-                            </p>
-                          )}
-                          {p.status === "PAID" && (
-                            <p className="text-[10px] text-white/40">{formatDate(p.created_at)}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                {/* Points rules */}
+                <div className="mt-6 space-y-2">
+                  <div className="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3">
+                    <span className="material-symbols-outlined text-green-300 text-[18px]">arrow_upward</span>
+                    <p className="text-sm text-white/80">Return on time → <span className="font-bold text-green-300">+10 pts</span></p>
+                  </div>
+                  <div className="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3">
+                    <span className="material-symbols-outlined text-red-300 text-[18px]">arrow_downward</span>
+                    <p className="text-sm text-white/80">Late return → <span className="font-bold text-red-300">−5 pts / day</span></p>
+                  </div>
+                  <div className="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3">
+                    <span className="material-symbols-outlined text-amber-300 text-[18px]">block</span>
+                    <p className="text-sm text-white/80">0 points → <span className="font-bold text-amber-300">suspended 15 days</span></p>
+                  </div>
+                </div>
+
+                {isBlocked && (
+                  <div className="mt-6 bg-red-500/20 border border-red-400/30 rounded-xl px-4 py-3 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-red-300 text-[18px]">schedule</span>
+                    <p className="text-xs text-red-200 font-medium">
+                      Borrowing suspended until{" "}
+                      {new Date(pointsBlockedUntil).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                    </p>
                   </div>
                 )}
 
@@ -588,7 +604,7 @@ export default function DashboardPage() {
                 <div className="mt-4 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-left">
                   <span className="material-symbols-outlined text-red-500 text-[18px] shrink-0 mt-0.5">warning</span>
                   <p className="text-xs text-red-600 font-medium">
-                    This book is overdue. A late penalty will be automatically applied to your account.
+                    This book is overdue. You will lose 5 points per day of delay.
                   </p>
                 </div>
               )}

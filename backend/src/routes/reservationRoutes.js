@@ -9,6 +9,7 @@ const {
   getMyReservations,
   cancelReservation,
   getAllReservations,
+  adminClearHistory,
 } = require("../controllers/reservationController");
 
 // USER - Create a reservation
@@ -26,5 +27,9 @@ router.delete("/:id", protect, cancelReservation);
 // ADMIN - Get all reservations
 // GET /api/reservations
 router.get("/", protect, isAdmin, getAllReservations);
+
+// ADMIN - Clear cancelled reservations
+// DELETE /api/reservations/history
+router.delete("/history", protect, isAdmin, adminClearHistory);
 
 module.exports = router;

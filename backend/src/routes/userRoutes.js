@@ -5,11 +5,16 @@ const { protect } = require("../middlewares/authMiddleware");
 const { isAdmin } = require("../middlewares/adminMiddleware");
 
 const {
+  getMe,
   getAllUsers,
   getUserById,
   validateUser,
   deleteUser,
 } = require("../controllers/userController");
+
+// USER - Get own profile
+// GET /api/users/me
+router.get("/me", protect, getMe);
 
 // ADMIN - Get all users
 // GET /api/users

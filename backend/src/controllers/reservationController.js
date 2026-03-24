@@ -119,6 +119,18 @@ exports.cancelReservation = async (req, res) => {
   }
 };
 
+// DELETE /api/reservations/history
+// Admin: clear cancelled reservations
+exports.adminClearHistory = async (req, res) => {
+  try {
+    await pool.query("DELETE FROM reservations WHERE status = 'CANCELLED'");
+    return res.json({ message: "Reservation history cleared" });
+  } catch (error) {
+    console.error("adminClearHistory error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 // GET /api/reservations
 // Admin: get all reservations
 exports.getAllReservations = async (req, res) => {
