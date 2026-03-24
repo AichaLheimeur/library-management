@@ -37,6 +37,15 @@ exports.addToWishlist = async (req, res) => {
       return res.status(404).json({ message: "Book not found" });
     }
 
+    // Vérifier que le livre n'est pas déjà emprunté par ce user
+    const [activeLoans] = await pool.query(
+      "SELECT id FROM loans WHERE user_id = ? AND book_id = ? AND status IN ('BORROWED', 'LATE')",
+      [userId, book_id]
+    );
+    if (activeLoans.length > 0) {
+      return res.status(400).json({ message: "You already borrowed this book" });
+    }
+
     // Vérifier doublon
     const [existing] = await pool.query(
       "SELECT id FROM wishlist WHERE user_id = ? AND book_id = ?",

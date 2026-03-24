@@ -54,6 +54,12 @@ exports.borrowBook = async (req, res) => {
       [book_id]
     );
 
+    // 6️⃣ Supprimer de la wishlist si présent
+    await pool.query(
+      "DELETE FROM wishlist WHERE user_id = ? AND book_id = ?",
+      [userId, book_id]
+    );
+
     return res.status(201).json({ message: "Book borrowed successfully" });
   } catch (error) {
     console.error("borrowBook error:", error);
@@ -66,13 +72,33 @@ exports.getMyLoans = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const [loans] = await pool.query("SELECT * FROM loans WHERE user_id = ?", [
-      userId,
-    ]);
+    const [loans] = await pool.query(
+      `SELECT l.*, b.title, b.author, b.image_url
+       FROM loans l
+       JOIN books b ON l.book_id = b.id
+       WHERE l.user_id = ?
+       ORDER BY l.borrow_date DESC`,
+      [userId]
+    );
 
     return res.json(loans);
   } catch (error) {
     console.error("getMyLoans error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// 🔹 USER - Clear loan history (RETURNED only)
+exports.clearMyHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await pool.query(
+      "DELETE FROM loans WHERE user_id = ? AND status = 'RETURNED'",
+      [userId]
+    );
+    return res.json({ message: "History cleared successfully" });
+  } catch (error) {
+    console.error("clearMyHistory error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -104,8 +130,8 @@ exports.returnBook = async (req, res) => {
 
     const loan = rows[0];
 
-    // 2️⃣ Autoriser uniquement si le statut est BORROWED
-    if (loan.status !== "BORROWED") {
+    // 2️⃣ Autoriser uniquement si le statut est BORROWED ou LATE
+    if (loan.status !== "BORROWED" && loan.status !== "LATE") {
       return res.status(400).json({ message: "Book already returned" });
     }
 
@@ -116,11 +142,10 @@ exports.returnBook = async (req, res) => {
     const lateDays = Math.floor((returnDate - dueDate) / msPerDay);
     const isLate = lateDays > 0;
 
-    // 4️⃣ Mettre à jour le loan
-    const newStatus = isLate ? "LATE" : "RETURNED";
+    // 4️⃣ Mettre à jour le loan — always RETURNED when user actively returns
     await pool.query(
-      "UPDATE loans SET status=?, return_date=NOW() WHERE id=?",
-      [newStatus, loanId]
+      "UPDATE loans SET status='RETURNED', return_date=NOW() WHERE id=?",
+      [loanId]
     );
 
     // 5️⃣ Remettre stock +1
@@ -129,14 +154,20 @@ exports.returnBook = async (req, res) => {
       [loan.book_id]
     );
 
-    // 6️⃣ Créer une pénalité si retard
+    // 6️⃣ Créer une pénalité si retard (seulement si pas déjà créée)
     if (isLate) {
-      const amount = lateDays * 10.0;
-      const reason = `Late return: ${lateDays} day${lateDays > 1 ? "s" : ""} overdue`;
-      await pool.query(
-        "INSERT INTO penalties (user_id, loan_id, amount, reason) VALUES (?, ?, ?, ?)",
-        [loan.user_id, loanId, amount, reason]
+      const [existingPenalty] = await pool.query(
+        "SELECT id FROM penalties WHERE loan_id = ?",
+        [loanId]
       );
+      if (existingPenalty.length === 0) {
+        const amount = lateDays * 10.0;
+        const reason = `Late return: ${lateDays} day${lateDays > 1 ? "s" : ""} overdue`;
+        await pool.query(
+          "INSERT INTO penalties (user_id, loan_id, amount, reason) VALUES (?, ?, ?, ?)",
+          [loan.user_id, loanId, amount, reason]
+        );
+      }
     }
 
     return res.json({
