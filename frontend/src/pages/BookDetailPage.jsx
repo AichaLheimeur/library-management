@@ -24,6 +24,7 @@ export default function BookDetailPage() {
   const [wishlistMsg, setWishlistMsg] = useState(null);
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [alreadyBorrowed, setAlreadyBorrowed] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn()) return;
@@ -36,6 +37,10 @@ export default function BookDetailPage() {
         (l) => l.book_id === Number(id) && ["BORROWED", "LATE"].includes(l.status)
       );
       setAlreadyBorrowed(borrowed);
+    }).catch(() => {});
+    api.get("/api/users/me").then((res) => {
+      const blocked = res.data.points_blocked_until && new Date(res.data.points_blocked_until) > new Date();
+      setIsBlocked(!!blocked);
     }).catch(() => {});
   }, [id]);
 
@@ -275,19 +280,34 @@ export default function BookDetailPage() {
                       </>
                     )}
                   </button>
+                ) : alreadyBorrowed ? (
+                  <button
+                    disabled
+                    className="flex flex-1 items-center justify-center gap-2 px-8 py-5 rounded-xl font-bold text-lg bg-slate-100 text-slate-400 cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined">block</span>
+                    Already Borrowed
+                  </button>
                 ) : (
                   <button
                     onClick={handleReserve}
-                    disabled={reserving || reserveSuccess}
+                    disabled={reserving || reserveSuccess || isBlocked}
                     className={`flex flex-1 items-center justify-center gap-2 px-8 py-5 rounded-xl font-bold text-lg transition-all active:scale-[0.98] ${
-                      reserveSuccess
+                      isBlocked
+                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                        : reserveSuccess
                         ? "bg-green-500 text-white cursor-default"
                         : reserving
                         ? "bg-primary/70 text-white cursor-not-allowed"
                         : "bg-primary text-white hover:shadow-lg hover:bg-primary/90"
                     }`}
                   >
-                    {reserving ? (
+                    {isBlocked ? (
+                      <>
+                        <span className="material-symbols-outlined">block</span>
+                        Account Suspended
+                      </>
+                    ) : reserving ? (
                       <>
                         <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
                         Reserving…
@@ -308,8 +328,8 @@ export default function BookDetailPage() {
                 {!isAdmin() && (
                   <button
                     onClick={handleWishlist}
-                    disabled={wishlistLoading || alreadyBorrowed || borrowSuccess}
-                    title={alreadyBorrowed || borrowSuccess ? "You already borrowed this book" : ""}
+                    disabled={wishlistLoading || alreadyBorrowed || borrowSuccess || isBlocked}
+                    title={alreadyBorrowed || borrowSuccess ? "You already borrowed this book" : isBlocked ? "Your account is suspended" : ""}
                     className={`flex items-center justify-center gap-2 px-8 py-5 rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       isWishlisted
                         ? "bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100"
