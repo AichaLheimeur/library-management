@@ -3,11 +3,17 @@ USE library_db;
 -- Vider les données liées pour repartir propre
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE wishlist;
-TRUNCATE TABLE penalties;
+TRUNCATE TABLE points_log;
+TRUNCATE TABLE notifications;
 TRUNCATE TABLE reservations;
 TRUNCATE TABLE loans;
 TRUNCATE TABLE books;
+TRUNCATE TABLE users;
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- Compte admin par défaut
+INSERT INTO users (email, password, role, is_validated, points) VALUES
+('test@test.com', '$2b$10$yX6rzk7/EO2TSL.DKLKBgOq6ggqtrkmDyVzA01aR69sLVPzmIXny2', 'ADMIN', TRUE, 100);
 
 -- 3. Insérer les 10 livres
 INSERT INTO books (title, author, category, description, total_quantity, available_quantity, image_url) VALUES
