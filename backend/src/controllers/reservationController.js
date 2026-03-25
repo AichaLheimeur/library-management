@@ -1,7 +1,20 @@
 const pool = require("../config/db");
 
-// POST /api/reservations
-// User: reserve a book (only if available_quantity = 0)
+/**
+ * POST /api/reservations
+ * Utilisateur : réserver un livre indisponible
+ * - Vérifie que le compte est validé et non suspendu
+ * - Vérifie que le livre existe
+ * - Vérifie que le livre est indisponible (available_quantity = 0)
+ * - Empêche les doublons : un user ne peut pas réserver 2x le même livre
+ * - Crée la réservation avec statut ACTIVE
+ *
+ * Statuts possibles d'une réservation :
+ * - ACTIVE   : en attente, le livre n'est pas encore disponible
+ * - READY    : le livre vient d'être rendu, l'utilisateur peut l'emprunter
+ * - COMPLETED: l'utilisateur a emprunté le livre après la réservation
+ * - CANCELLED: l'utilisateur a annulé sa réservation
+ */
 exports.createReservation = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -11,7 +24,7 @@ exports.createReservation = async (req, res) => {
       return res.status(400).json({ message: "book_id is required" });
     }
 
-    // 1. Check user not suspended
+    // 1. Vérifier que le compte est validé et non suspendu
     const [userRows] = await pool.query(
       "SELECT is_validated, points_blocked_until FROM users WHERE id = ?",
       [userId]
@@ -24,37 +37,35 @@ exports.createReservation = async (req, res) => {
       return res.status(403).json({ message: "Your account is suspended. You cannot reserve books." });
     }
 
-    // 2. Check book exists
+    // 2. Vérifier que le livre existe
     const [books] = await pool.query("SELECT * FROM books WHERE id = ?", [book_id]);
-
     if (books.length === 0) {
       return res.status(404).json({ message: "Book not found" });
     }
 
     const book = books[0];
 
-    // 2. Only reserve if unavailable
+    // 3. On ne réserve que si le livre est indisponible
+    // Si disponible → l'utilisateur doit emprunter directement
     if (book.available_quantity > 0) {
       return res.status(400).json({
         message: "Book is available, you can borrow it directly",
       });
     }
 
-    // 3. Prevent duplicate active reservation
+    // 4. Empêcher les doublons : vérifier qu'il n'y a pas déjà une réservation ACTIVE
     const [existing] = await pool.query(
       "SELECT id FROM reservations WHERE user_id = ? AND book_id = ? AND status = 'ACTIVE'",
       [userId, book_id]
     );
-
     if (existing.length > 0) {
       return res.status(400).json({
         message: "You already have an active reservation for this book",
       });
     }
 
-    // 4. Create reservation
+    // 5. Créer la réservation avec statut ACTIVE
     const reservationDate = new Date();
-
     const [result] = await pool.query(
       `INSERT INTO reservations (user_id, book_id, reservation_date, status)
        VALUES (?, ?, ?, 'ACTIVE')`,
@@ -71,8 +82,12 @@ exports.createReservation = async (req, res) => {
   }
 };
 
-// GET /api/reservations/me
-// User: get own reservations
+/**
+ * GET /api/reservations/me
+ * Utilisateur : récupérer ses propres réservations
+ * Retourne toutes les réservations avec les infos du livre
+ * Triées par date de réservation décroissante
+ */
 exports.getMyReservations = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -93,14 +108,19 @@ exports.getMyReservations = async (req, res) => {
   }
 };
 
-// DELETE /api/reservations/:id
-// User: cancel own reservation
+/**
+ * DELETE /api/reservations/:id
+ * Utilisateur : annuler une réservation
+ * - Seules les réservations ACTIVE ou READY peuvent être annulées
+ * - Si READY annulée → remettre le stock du livre +1
+ *   (car le stock avait été "réservé" pour cet utilisateur)
+ */
 exports.cancelReservation = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
 
-    // 1. Check reservation exists and belongs to user
+    // 1. Vérifier que la réservation existe et appartient à cet utilisateur
     const [rows] = await pool.query(
       "SELECT * FROM reservations WHERE id = ? AND user_id = ?",
       [id, userId]
@@ -112,20 +132,21 @@ exports.cancelReservation = async (req, res) => {
 
     const reservation = rows[0];
 
-    // 2. Only cancel ACTIVE or READY reservations
+    // 2. Seules les réservations ACTIVE ou READY peuvent être annulées
     if (reservation.status !== "ACTIVE" && reservation.status !== "READY") {
       return res.status(400).json({
         message: "Only active or ready reservations can be cancelled",
       });
     }
 
-    // 3. Update status to CANCELLED
+    // 3. Mettre à jour le statut → CANCELLED
     await pool.query(
       "UPDATE reservations SET status = 'CANCELLED' WHERE id = ?",
       [id]
     );
 
-    // 4. If READY, remettre le stock +1
+    // 4. Si la réservation était READY, remettre le stock du livre +1
+    // car le livre avait été "réservé" pour cet utilisateur
     if (reservation.status === "READY") {
       await pool.query(
         "UPDATE books SET available_quantity = available_quantity + 1 WHERE id = ?",
@@ -140,8 +161,11 @@ exports.cancelReservation = async (req, res) => {
   }
 };
 
-// DELETE /api/reservations/history
-// Admin: clear cancelled reservations
+/**
+ * DELETE /api/reservations/history
+ * Admin : supprimer toutes les réservations annulées
+ * Permet de nettoyer l'historique
+ */
 exports.adminClearHistory = async (req, res) => {
   try {
     await pool.query("DELETE FROM reservations WHERE status = 'CANCELLED'");
@@ -152,8 +176,11 @@ exports.adminClearHistory = async (req, res) => {
   }
 };
 
-// GET /api/reservations
-// Admin: get all reservations
+/**
+ * GET /api/reservations
+ * Admin : récupérer toutes les réservations de tous les utilisateurs
+ * Inclut l'email de l'utilisateur et les infos du livre
+ */
 exports.getAllReservations = async (req, res) => {
   try {
     const [reservations] = await pool.query(

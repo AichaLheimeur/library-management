@@ -2,12 +2,15 @@ const pool = require("../config/db");
 
 /**
  * GET /api/books
- * Public: list all books
+ * Public : récupérer la liste de tous les livres
+ * Supporte la recherche par titre, auteur et catégorie (paramètres query)
+ * Exemple : GET /api/books?title=clean&author=martin
  */
 exports.getAllBooks = async (req, res) => {
   try {
     const { title, author, category } = req.query;
 
+    // Construction dynamique des filtres de recherche
     const conditions = [];
     const values = [];
 
@@ -24,6 +27,7 @@ exports.getAllBooks = async (req, res) => {
       values.push(`%${category}%`);
     }
 
+    // Si aucun filtre → retourner tous les livres
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const [rows] = await pool.query(`SELECT * FROM books ${where}`, values);
 
@@ -36,7 +40,8 @@ exports.getAllBooks = async (req, res) => {
 
 /**
  * GET /api/books/:id
- * Public: get a book by id
+ * Public : récupérer un livre par son ID
+ * Retourne 404 si le livre n'existe pas
  */
 exports.getBookById = async (req, res) => {
   try {
@@ -57,13 +62,16 @@ exports.getBookById = async (req, res) => {
 
 /**
  * POST /api/books
- * Admin: create a book
+ * Admin : ajouter un nouveau livre au catalogue
+ * - title et author sont obligatoires
+ * - total_quantity = nombre d'exemplaires (défaut : 1)
+ * - available_quantity = total_quantity au moment de la création
  */
 exports.createBook = async (req, res) => {
   try {
     const { title, author, category, description, total_quantity } = req.body;
 
-    // Validation minimale
+    // Validation : titre et auteur obligatoires
     if (!title || !author) {
       return res.status(400).json({ message: "title and author are required" });
     }
@@ -73,7 +81,7 @@ exports.createBook = async (req, res) => {
       return res.status(400).json({ message: "total_quantity must be a number >= 0" });
     }
 
-    // règle : available = total
+    // Au départ, tous les exemplaires sont disponibles
     const available = total;
 
     const [result] = await pool.query(
@@ -89,6 +97,7 @@ exports.createBook = async (req, res) => {
       ]
     );
 
+    // Retourner le livre créé avec son ID
     const [rows] = await pool.query("SELECT * FROM books WHERE id = ?", [result.insertId]);
     return res.status(201).json(rows[0]);
   } catch (error) {
@@ -96,9 +105,12 @@ exports.createBook = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 /**
  * PUT /api/books/:id
- * Admin: update a book
+ * Admin : modifier un livre existant
+ * - Vérifie que available_quantity ne dépasse pas total_quantity
+ * - Les champs non fournis gardent leur valeur actuelle
  */
 exports.updateBook = async (req, res) => {
   try {
@@ -112,6 +124,7 @@ exports.updateBook = async (req, res) => {
       available_quantity
     } = req.body;
 
+    // Vérifier que le livre existe
     const [existing] = await pool.query(
       "SELECT * FROM books WHERE id = ?",
       [id]
@@ -123,6 +136,7 @@ exports.updateBook = async (req, res) => {
 
     const book = existing[0];
 
+    // Utiliser les nouvelles valeurs si fournies, sinon garder les anciennes
     const newTotal =
       total_quantity !== undefined
         ? Number(total_quantity)
@@ -133,10 +147,9 @@ exports.updateBook = async (req, res) => {
         ? Number(available_quantity)
         : book.available_quantity;
 
+    // Validation des quantités
     if (newTotal < 0 || newAvailable < 0) {
-      return res
-        .status(400)
-        .json({ message: "Quantities must be >= 0" });
+      return res.status(400).json({ message: "Quantities must be >= 0" });
     }
 
     if (newAvailable > newTotal) {
@@ -160,6 +173,7 @@ exports.updateBook = async (req, res) => {
       ]
     );
 
+    // Retourner le livre mis à jour
     const [updated] = await pool.query(
       "SELECT * FROM books WHERE id = ?",
       [id]
@@ -172,7 +186,11 @@ exports.updateBook = async (req, res) => {
   }
 };
 
-// DELETE /api/books/:id
+/**
+ * DELETE /api/books/:id
+ * Admin : supprimer un livre du catalogue
+ * Retourne 404 si le livre n'existe pas
+ */
 exports.deleteBook = async (req, res) => {
   try {
     const { id } = req.params;
