@@ -25,6 +25,12 @@ export default function AdminPage() {
   const [adminToast, setAdminToast] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [pointsModal, setPointsModal] = useState(null); // { user }
+  const [pointsInput, setPointsInput] = useState("");
+  const [pointsReason, setPointsReason] = useState("");
+  const [pointsLog, setPointsLog] = useState([]);
+  const [pointsLogUser, setPointsLogUser] = useState(null);
+  const [showPointsLog, setShowPointsLog] = useState(false);
 
   const showAdminToast = (msg) => {
     setAdminToast(msg);
@@ -100,6 +106,38 @@ export default function AdminPage() {
       setUserToDelete(null);
     } catch {
       setUserToDelete(null);
+    }
+  };
+
+  const handleAdjustPoints = async () => {
+    if (!pointsModal) return;
+    try {
+      const res = await api.put(`/api/users/${pointsModal.user.id}/points`, {
+        points: parseInt(pointsInput),
+        reason: pointsReason || "Admin adjustment",
+      });
+      setUsers((prev) => prev.map((x) =>
+        x.id === pointsModal.user.id
+          ? { ...x, points: res.data.points, points_blocked_until: res.data.blockedUntil ?? null }
+          : x
+      ));
+      showAdminToast(`Points updated to ${res.data.points} for ${pointsModal.user.email}`);
+      setPointsModal(null);
+      setPointsInput("");
+      setPointsReason("");
+    } catch {
+      showAdminToast("Could not update points.");
+    }
+  };
+
+  const handleOpenPointsLog = async (u) => {
+    try {
+      const res = await api.get(`/api/users/${u.id}/points-log`);
+      setPointsLog(res.data);
+      setPointsLogUser(u);
+      setShowPointsLog(true);
+    } catch {
+      showAdminToast("Could not load points history.");
     }
   };
 
@@ -757,6 +795,24 @@ export default function AdminPage() {
                               )}
                               {u.role !== "ADMIN" && (
                                 <button
+                                  onClick={() => { setPointsModal({ user: u }); setPointsInput(String(u.points ?? 100)); setPointsReason(""); }}
+                                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-600 border border-blue-100 hover:bg-blue-50 transition-colors"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">stars</span>
+                                  Points
+                                </button>
+                              )}
+                              {u.role !== "ADMIN" && (
+                                <button
+                                  onClick={() => handleOpenPointsLog(u)}
+                                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">history</span>
+                                  History
+                                </button>
+                              )}
+                              {u.role !== "ADMIN" && (
+                                <button
                                   onClick={() => setUserToDelete(u)}
                                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors"
                                 >
@@ -933,6 +989,84 @@ export default function AdminPage() {
               >
                 Delete
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Adjust Points Modal ── */}
+      {pointsModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4" style={{backgroundColor:"rgba(0,0,0,0.4)"}} onClick={() => setPointsModal(null)}>
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 flex flex-col gap-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-slate-900">Adjust Points</h3>
+            <p className="text-sm text-slate-500">User: <span className="font-semibold text-slate-700">{pointsModal.user.email}</span></p>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-slate-700">New points (0–200)</label>
+              <input
+                type="number"
+                min="0"
+                max="200"
+                value={pointsInput}
+                onChange={(e) => setPointsInput(e.target.value)}
+                className="border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              {parseInt(pointsInput) === 0 && <p className="text-xs text-amber-600">Warning: setting to 0 will suspend this user for 15 days.</p>}
+              {parseInt(pointsInput) > 0 && pointsModal.user.points_blocked_until && new Date(pointsModal.user.points_blocked_until) > new Date() && (
+                <p className="text-xs text-emerald-600">This will lift the current suspension.</p>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-slate-700">Reason</label>
+              <input
+                type="text"
+                value={pointsReason}
+                onChange={(e) => setPointsReason(e.target.value)}
+                placeholder="Admin adjustment"
+                className="border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setPointsModal(null)} className="flex-1 px-5 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors">Cancel</button>
+              <button onClick={handleAdjustPoints} className="flex-1 px-5 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-colors">Save</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Points Log Panel ── */}
+      {showPointsLog && createPortal(
+        <div className="fixed inset-0 z-[9999] flex justify-end" style={{backgroundColor:"rgba(0,0,0,0.3)"}} onClick={() => setShowPointsLog(false)}>
+          <div className="bg-white w-full max-w-sm h-full flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+              <div>
+                <h3 className="font-bold text-slate-900">Points History</h3>
+                <p className="text-xs text-slate-400 mt-0.5">{pointsLogUser?.email}</p>
+              </div>
+              <button onClick={() => setShowPointsLog(false)} className="text-slate-400 hover:text-slate-600">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-3">
+              {pointsLog.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center mt-10">No history yet.</p>
+              ) : (
+                pointsLog.map((log) => (
+                  <div key={log.id} className="flex items-center gap-3 py-3 border-b border-slate-50">
+                    <span className={`material-symbols-outlined text-[20px] ${log.change_points >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                      {log.change_points >= 0 ? "arrow_upward" : "arrow_downward"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-700">{log.reason}</p>
+                      <p className="text-xs text-slate-400">{new Date(log.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</p>
+                    </div>
+                    <span className={`text-sm font-bold ${log.change_points >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                      {log.change_points >= 0 ? "+" : ""}{log.change_points} pts
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>,

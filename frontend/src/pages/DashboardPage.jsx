@@ -138,9 +138,27 @@ export default function DashboardPage() {
     }
   };
 
+  const handleBorrowFromReservation = async (r) => {
+    try {
+      await api.post("/api/loans", { book_id: r.book_id });
+      showToast(`"${r.title}" borrowed successfully!`);
+      const [loansRes, reservationsRes, meRes] = await Promise.all([
+        api.get("/api/loans/me"),
+        api.get("/api/reservations/me"),
+        api.get("/api/users/me"),
+      ]);
+      setLoans(loansRes.data);
+      setReservations(reservationsRes.data);
+      setUserPoints(meRes.data.points);
+      setPointsBlockedUntil(meRes.data.points_blocked_until);
+    } catch (err) {
+      showError(err.response?.data?.message || "Could not borrow book.");
+    }
+  };
+
   const activeLoans = loans.filter((l) => l.status === "BORROWED" || l.status === "LATE");
   const returnedLoans = loans.filter((l) => l.status === "RETURNED");
-  const activeReservations = reservations.filter((r) => r.status === "ACTIVE");
+  const activeReservations = reservations.filter((r) => r.status === "ACTIVE" || r.status === "READY");
   const dueSoonCount = activeLoans.filter((l) => isDueSoon(l.due_date)).length;
   const isBlocked = pointsBlockedUntil && new Date(pointsBlockedUntil) > new Date();
 
@@ -462,19 +480,42 @@ export default function DashboardPage() {
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full">Waiting</span>
+                          {r.status === "READY" ? (
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Available now!</span>
+                          ) : (
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full">Waiting</span>
+                          )}
                           <h4 className="font-bold text-slate-800 text-base mt-2 leading-tight">{r.title}</h4>
                           <p className="text-sm text-slate-400 mt-0.5">{r.author}</p>
                           <p className="text-xs text-slate-400 mt-2">Reserved: {formatDate(r.reservation_date)}</p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setReservationToCancel(r)}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">cancel</span>
-                        Cancel reservation
-                      </button>
+                      {r.status === "READY" ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleBorrowFromReservation(r)}
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">book</span>
+                            Borrow now
+                          </button>
+                          <button
+                            onClick={() => setReservationToCancel(r)}
+                            className="flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-sm font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">cancel</span>
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setReservationToCancel(r)}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">cancel</span>
+                          Cancel reservation
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

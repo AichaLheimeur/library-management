@@ -11,7 +11,20 @@ exports.createReservation = async (req, res) => {
       return res.status(400).json({ message: "book_id is required" });
     }
 
-    // 1. Check book exists
+    // 1. Check user not suspended
+    const [userRows] = await pool.query(
+      "SELECT is_validated, points_blocked_until FROM users WHERE id = ?",
+      [userId]
+    );
+    if (userRows.length === 0 || !userRows[0].is_validated) {
+      return res.status(403).json({ message: "Your account is pending validation by the library." });
+    }
+    const { points_blocked_until } = userRows[0];
+    if (points_blocked_until && new Date(points_blocked_until) > new Date()) {
+      return res.status(403).json({ message: "Your account is suspended. You cannot reserve books." });
+    }
+
+    // 2. Check book exists
     const [books] = await pool.query("SELECT * FROM books WHERE id = ?", [book_id]);
 
     if (books.length === 0) {
@@ -99,10 +112,10 @@ exports.cancelReservation = async (req, res) => {
 
     const reservation = rows[0];
 
-    // 2. Only cancel ACTIVE reservations
-    if (reservation.status !== "ACTIVE") {
+    // 2. Only cancel ACTIVE or READY reservations
+    if (reservation.status !== "ACTIVE" && reservation.status !== "READY") {
       return res.status(400).json({
-        message: "Only active reservations can be cancelled",
+        message: "Only active or ready reservations can be cancelled",
       });
     }
 
@@ -111,6 +124,14 @@ exports.cancelReservation = async (req, res) => {
       "UPDATE reservations SET status = 'CANCELLED' WHERE id = ?",
       [id]
     );
+
+    // 4. If READY, remettre le stock +1
+    if (reservation.status === "READY") {
+      await pool.query(
+        "UPDATE books SET available_quantity = available_quantity + 1 WHERE id = ?",
+        [reservation.book_id]
+      );
+    }
 
     return res.json({ message: "Reservation cancelled successfully" });
   } catch (error) {

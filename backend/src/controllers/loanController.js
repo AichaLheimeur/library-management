@@ -37,9 +37,15 @@ exports.borrowBook = async (req, res) => {
 
     const book = books[0];
 
-    // 3️⃣ Vérifier stock
+    // 3️⃣ Vérifier stock (exception si l'user a une réservation READY)
     if (book.available_quantity <= 0) {
-      return res.status(400).json({ message: "Book not available" });
+      const [readyReservation] = await pool.query(
+        "SELECT id FROM reservations WHERE user_id = ? AND book_id = ? AND status = 'READY'",
+        [userId, book_id]
+      );
+      if (readyReservation.length === 0) {
+        return res.status(400).json({ message: "Book not available" });
+      }
     }
 
     // 4️⃣ Vérifier qu'il n'y a pas déjà un emprunt actif pour ce user + ce book
@@ -72,6 +78,12 @@ exports.borrowBook = async (req, res) => {
     // 8️⃣ Supprimer de la wishlist si présent
     await pool.query(
       "DELETE FROM wishlist WHERE user_id = ? AND book_id = ?",
+      [userId, book_id]
+    );
+
+    // 9️⃣ Marquer la réservation READY comme COMPLETED
+    await pool.query(
+      "UPDATE reservations SET status = 'COMPLETED' WHERE user_id = ? AND book_id = ? AND status = 'READY'",
       [userId, book_id]
     );
 
@@ -184,12 +196,28 @@ exports.returnBook = async (req, res) => {
       [loan.book_id]
     );
 
+    // 5b. Trigger READY pour la plus ancienne réservation ACTIVE
+    const [activeReservations] = await pool.query(
+      `SELECT id FROM reservations WHERE book_id = ? AND status = 'ACTIVE' ORDER BY reservation_date ASC LIMIT 1`,
+      [loan.book_id]
+    );
+    if (activeReservations.length > 0) {
+      await pool.query(
+        "UPDATE reservations SET status = 'READY' WHERE id = ?",
+        [activeReservations[0].id]
+      );
+    }
+
     // 6️⃣ Mettre à jour les points du user
     const [userRows] = await pool.query(
-      "SELECT points FROM users WHERE id = ?",
+      "SELECT points, email FROM users WHERE id = ?",
       [loan.user_id]
     );
     const currentPoints = userRows[0].points;
+    const userEmail = userRows[0].email;
+
+    const [bookRows] = await pool.query("SELECT title FROM books WHERE id = ?", [loan.book_id]);
+    const bookTitle = bookRows[0]?.title || "Unknown book";
 
     let newPoints;
     let pointsChange;
@@ -212,7 +240,16 @@ exports.returnBook = async (req, res) => {
       [newPoints, blockedUntil, loan.user_id]
     );
 
-    // 7️⃣ Réponse
+    // 7️⃣ Créer une notification si retard
+    if (isLate) {
+      const notifMessage = `"${bookTitle}" returned by ${userEmail} was ${lateDays} day${lateDays > 1 ? "s" : ""} late. ${Math.abs(pointsChange)} points deducted (${newPoints} pts remaining).`;
+      await pool.query(
+        "INSERT INTO notifications (type, message, loan_id) VALUES ('LATE_RETURN', ?, ?)",
+        [notifMessage, loanId]
+      );
+    }
+
+    // 8️⃣ Réponse
     if (isLate) {
       return res.json({
         message: `Book returned late. You lost ${Math.abs(pointsChange)} points (${lateDays} day${lateDays > 1 ? "s" : ""} overdue).`,
