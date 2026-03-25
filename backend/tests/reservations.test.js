@@ -19,11 +19,12 @@ beforeAll(async () => {
   });
   adminToken = adminRes.body.token;
 
-  // Création + connexion d'un user test
+  // Création + validation + connexion d'un user test
   await request(app).post("/api/auth/register").send({
     email: userEmail,
     password: userPassword,
   });
+  await pool.query("UPDATE users SET is_validated = TRUE WHERE email = ?", [userEmail]);
   const userRes = await request(app).post("/api/auth/login").send({
     email: userEmail,
     password: userPassword,
@@ -194,6 +195,6 @@ describe("DELETE /api/reservations/:id", () => {
       .set("Authorization", `Bearer ${userToken}`);
 
     expect(res.statusCode).toBe(400);
-    expect(res.body.message).toBe("Only active reservations can be cancelled");
+    expect(res.body.message).toBe("Only active or ready reservations can be cancelled");
   });
 });

@@ -18,11 +18,12 @@ beforeAll(async () => {
   });
   adminToken = adminRes.body.token;
 
-  // Création + connexion d'un user test
+  // Création + validation + connexion d'un user test
   await request(app).post("/api/auth/register").send({
     email: userEmail,
     password: userPassword,
   });
+  await pool.query("UPDATE users SET is_validated = TRUE WHERE email = ?", [userEmail]);
   const userRes = await request(app).post("/api/auth/login").send({
     email: userEmail,
     password: userPassword,

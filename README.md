@@ -210,8 +210,15 @@ http://localhost:3000/api-docs
 |---------|-------|-------------|
 | GET | /api/users | Liste des utilisateurs |
 | PUT | /api/users/:id/validate | Valider un utilisateur |
-| PUT | /api/users/:id/points | Ajuster les points |
+| PUT | /api/users/:id/points | Ajuster les points (0-200) |
 | GET | /api/users/:id/points-log | Historique des points |
+
+#### Notifications (Admin)
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | /api/notifications | Liste des notifications |
+| PUT | /api/notifications/:id/read | Marquer une notification comme lue |
+| PUT | /api/notifications/read-all | Marquer toutes comme lues |
 
 ---
 
@@ -224,14 +231,30 @@ cd backend
 npm test
 ```
 
+### Résultats
+```
+Test Suites: 5 passed, 5 total
+Tests:       51 passed, 51 total
+```
+
 ### Fichiers de test
 ```
 backend/tests/
-├── auth.test.js         # Tests d'authentification
-├── books.test.js        # Tests gestion des livres
-├── loans.test.js        # Tests emprunts
-└── reservations.test.js # Tests réservations
+├── auth.test.js         # Tests d'authentification (register, login, me)
+├── books.test.js        # Tests gestion des livres (CRUD, admin)
+├── loans.test.js        # Tests emprunts (borrow, return, points)
+├── reservations.test.js # Tests réservations (ACTIVE, READY, cancel)
+└── points.test.js       # Tests système de points et suspension
 ```
+
+### Ce qui est testé
+- Inscription, connexion, profil utilisateur
+- CRUD livres (admin uniquement)
+- Emprunt, retour à temps (+10 pts), retour en retard (-5×jours pts)
+- Réservation, annulation (ACTIVE et READY)
+- Ajustement manuel des points (admin)
+- Historique des points
+- Suspension à 0 points (bloquer l'emprunt)
 
 ---
 
@@ -291,4 +314,4 @@ Ce projet a été développé dans le cadre d'un cours de développement web ful
 
 ## Licence
 
-Ce projet est développé à des fins académiques.
+Projet académique - INSSET 2026
