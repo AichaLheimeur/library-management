@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     role ENUM('USER', 'ADMIN') DEFAULT 'USER',
     is_validated BOOLEAN DEFAULT TRUE,
+    points INT NOT NULL DEFAULT 100,
+    points_blocked_until DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -51,24 +53,34 @@ CREATE TABLE IF NOT EXISTS reservations (
     user_id INT NOT NULL,
     book_id INT NOT NULL,
     reservation_date DATE NOT NULL,
-    status ENUM('ACTIVE', 'CANCELLED', 'COMPLETED') DEFAULT 'ACTIVE',
+    status ENUM('ACTIVE', 'CANCELLED', 'COMPLETED', 'READY') DEFAULT 'ACTIVE',
 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
 );
 
 -- =========================
--- TABLE PENALTIES
+-- TABLE POINTS LOG
 -- =========================
-CREATE TABLE IF NOT EXISTS penalties (
+CREATE TABLE IF NOT EXISTS points_log (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    loan_id INT NOT NULL,
-    amount DECIMAL(6,2) DEFAULT 0.00,
-    reason VARCHAR(255),
+    change_points INT NOT NULL,
+    reason VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+-- =========================
+-- TABLE NOTIFICATIONS
+-- =========================
+CREATE TABLE IF NOT EXISTS notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR(50) DEFAULT 'OVERDUE_LOAN',
+    message TEXT NOT NULL,
+    loan_id INT,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE
 );
 

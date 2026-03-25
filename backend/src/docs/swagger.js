@@ -35,7 +35,8 @@ const swaggerSpec = {
     { name: "Books", description: "Catalogue de livres" },
     { name: "Loans", description: "Emprunts de livres" },
     { name: "Reservations", description: "Réservations de livres" },
-    { name: "Penalties", description: "Pénalités pour retard" },
+    { name: "Users", description: "Gestion des utilisateurs (admin)" },
+    { name: "Notifications", description: "Notifications admin" },
   ],
   paths: {
     // ─────────────────────────────────────────
@@ -346,18 +347,17 @@ const swaggerSpec = {
         ],
         responses: {
           200: {
-            description:
-              "Livre retourné. Si en retard, une pénalité est appliquée automatiquement.",
+            description: "Livre retourné. Points mis à jour automatiquement (+10 à temps, -5×jours en retard).",
             content: {
               "application/json": {
                 schema: {
                   type: "object",
                   properties: {
-                    message: {
-                      type: "string",
-                      example:
-                        "Book returned late. Penalty applied: 3 day(s) × 10.00 = 30.00 €",
-                    },
+                    message: { type: "string", example: "Book returned on time! You earned +10 points." },
+                    points: { type: "integer", example: 110 },
+                    pointsChange: { type: "integer", example: 10 },
+                    blocked: { type: "boolean", example: false },
+                    blockedUntil: { type: "string", format: "date-time", nullable: true },
                   },
                 },
               },
@@ -445,49 +445,110 @@ const swaggerSpec = {
     },
 
     // ─────────────────────────────────────────
-    // PENALTIES
+    // USERS (ADMIN)
     // ─────────────────────────────────────────
-    "/api/penalties/me": {
+    "/api/users": {
       get: {
-        tags: ["Penalties"],
-        summary: "Voir mes pénalités",
+        tags: ["Users"],
+        summary: "Voir tous les utilisateurs (admin)",
         security: [{ bearerAuth: [] }],
         responses: {
-          200: {
-            description: "Liste des pénalités de l'utilisateur connecté",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      id: { type: "integer" },
-                      loan_id: { type: "integer" },
-                      amount: { type: "number", example: 30.0 },
-                      reason: {
-                        type: "string",
-                        example: "Late return: 3 days overdue",
-                      },
-                      created_at: { type: "string", format: "date-time" },
-                      book_title: { type: "string" },
-                    },
-                  },
+          200: { description: "Liste de tous les utilisateurs avec points" },
+          403: { description: "Accès réservé aux admins" },
+        },
+      },
+    },
+    "/api/users/{id}/validate": {
+      put: {
+        tags: ["Users"],
+        summary: "Valider un compte utilisateur (admin)",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } },
+        ],
+        responses: {
+          200: { description: "Compte validé" },
+          404: { description: "Utilisateur introuvable" },
+        },
+      },
+    },
+    "/api/users/{id}/points": {
+      put: {
+        tags: ["Users"],
+        summary: "Ajuster les points d'un utilisateur (admin)",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  points: { type: "integer", example: 50, minimum: 0, maximum: 200 },
+                  reason: { type: "string", example: "Admin adjustment" },
                 },
               },
             },
           },
         },
+        responses: {
+          200: { description: "Points mis à jour. Suspension levée si points > 0." },
+          404: { description: "Utilisateur introuvable" },
+        },
       },
     },
-    "/api/penalties": {
+    "/api/users/{id}/points-log": {
       get: {
-        tags: ["Penalties"],
-        summary: "Voir toutes les pénalités (admin)",
+        tags: ["Users"],
+        summary: "Historique des points d'un utilisateur (admin)",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } },
+        ],
+        responses: {
+          200: { description: "Liste des changements de points avec raisons" },
+          404: { description: "Utilisateur introuvable" },
+        },
+      },
+    },
+
+    // ─────────────────────────────────────────
+    // NOTIFICATIONS
+    // ─────────────────────────────────────────
+    "/api/notifications": {
+      get: {
+        tags: ["Notifications"],
+        summary: "Voir toutes les notifications (admin)",
         security: [{ bearerAuth: [] }],
         responses: {
-          200: { description: "Liste de toutes les pénalités avec infos utilisateur" },
+          200: { description: "Liste des notifications (retards et retours tardifs)" },
           403: { description: "Accès réservé aux admins" },
+        },
+      },
+    },
+    "/api/notifications/{id}/read": {
+      put: {
+        tags: ["Notifications"],
+        summary: "Marquer une notification comme lue (admin)",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } },
+        ],
+        responses: {
+          200: { description: "Notification marquée comme lue" },
+        },
+      },
+    },
+    "/api/notifications/read-all": {
+      put: {
+        tags: ["Notifications"],
+        summary: "Marquer toutes les notifications comme lues (admin)",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: "Toutes les notifications marquées comme lues" },
         },
       },
     },

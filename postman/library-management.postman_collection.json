@@ -375,29 +375,77 @@
       ]
     },
     {
-      "name": "Penalties",
+      "name": "Points (admin)",
       "item": [
         {
-          "name": "Get My Penalties",
+          "name": "Adjust User Points",
           "request": {
-            "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token_user}}" }],
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token_admin}}" }
+            ],
             "url": {
-              "raw": "{{base_url}}/api/penalties/me",
+              "raw": "{{base_url}}/api/users/{{user_id}}/points",
               "host": ["{{base_url}}"],
-              "path": ["api", "penalties", "me"]
+              "path": ["api", "users", "{{user_id}}", "points"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"points\": 50,\n  \"reason\": \"Admin adjustment\"\n}"
             }
           }
         },
         {
-          "name": "Get All Penalties (admin)",
+          "name": "Get Points Log (history)",
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
             "url": {
-              "raw": "{{base_url}}/api/penalties",
+              "raw": "{{base_url}}/api/users/{{user_id}}/points-log",
               "host": ["{{base_url}}"],
-              "path": ["api", "penalties"]
+              "path": ["api", "users", "{{user_id}}", "points-log"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications (admin)",
+      "item": [
+        {
+          "name": "Get All Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/notifications",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications"]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/1/read",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "1", "read"]
+            }
+          }
+        },
+        {
+          "name": "Mark All Notifications as Read",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_admin}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/read-all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "read-all"]
             }
           }
         }
